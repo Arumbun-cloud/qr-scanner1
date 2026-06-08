@@ -234,16 +234,17 @@
       var video = document.getElementById("video");
       video.srcObject = s;
 
-      video.onloadedmetadata = function() {
-  video.play();
-};
+      video.play();
 
-video.onplaying = function() {
-  document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
-  addLog("วิดีโอ: " + video.videoWidth + "x" + video.videoHeight);
-  frameCount = 0;
-  requestAnimationFrame(tick);
-};
+      var waitVideo = setInterval(function() {
+        if (video.readyState >= 2 && video.videoWidth > 0) {
+          clearInterval(waitVideo);
+          document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
+          addLog("วิดีโอพร้อม: " + video.videoWidth + "x" + video.videoHeight);
+          frameCount = 0;
+          requestAnimationFrame(tick);
+        }
+      }, 200);
     })
     .catch(function(err) {
       addLog("❌ " + err.name + ": " + err.message, "err");
