@@ -181,7 +181,7 @@
     <div class="scan-top">
       <div class="brand">
         <div class="brand-logo">📷</div>
-        <div class="brand-text">สแกนเช็คชื่อ</div>
+        <div class="brand-text">ตอบแบบสอบถาม</div>
       </div>
       <div class="btn-flip" onclick="flipCamera()">🔄</div>
     </div>
@@ -361,59 +361,85 @@
   function restartScanner(){ showScreen("screenScan"); startCamera(); }
   function flipCamera(){ facingMode = facingMode==="environment"?"user":"environment"; startCamera(); }
 
+  // ตรวจว่าเครื่องรองรับ BarcodeDetector (ตัวสแกนของระบบ — เร็ว+แม่นกว่า jsQR มาก)
+  var barcodeDetector = null;
+  var useNative = false;
+  if ("BarcodeDetector" in window) {
+    try {
+      barcodeDetector = new BarcodeDetector({ formats: ["qr_code"] });
+      useNative = true;
+    } catch(e) { useNative = false; }
+  }
+
   var scanFrame = 0;
 
-  function decodeRegion(video, cropRatio, target, useThreshold) {
+  // jsQR fallback — crop กลางภาพแล้วขยาย + สลับ threshold ทุกเฟรมคู่
+  function decodeJsQR(video) {
     var vw = video.videoWidth, vh = video.videoHeight;
-    var side = Math.floor(Math.min(vw, vh) * cropRatio);
+    var side = Math.floor(Math.min(vw, vh) * 0.8);
     var sx   = Math.floor((vw - side) / 2);
     var sy   = Math.floor((vh - side) / 2);
+    var target = 512;
 
-    canvas.width  = target;
-    canvas.height = target;
-    ctx.imageSmoothingEnabled = false;           // คมชัดขึ้นสำหรับกล้องเบลอ
+    canvas.width = target; canvas.height = target;
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(video, sx, sy, side, side, 0, 0, target, target);
-
     var img = ctx.getImageData(0, 0, target, target);
 
-    if (useThreshold) {
-      // ปรับ contrast แบบ adaptive — ช่วยกล้องหน้าความละเอียดต่ำ/แสงน้อยมาก
-      var d = img.data;
-      var sum = 0;
-      for (var k = 0; k < d.length; k += 4) sum += (d[k] + d[k+1] + d[k+2]) / 3;
-      var mean = sum / (d.length / 4);
+    // เฟรมคู่ทำ threshold ช่วยภาพเบลอ
+    if (scanFrame % 2 === 0) {
+      var d = img.data, sum = 0;
+      for (var k = 0; k < d.length; k += 4) sum += (d[k]+d[k+1]+d[k+2])/3;
+      var mean = sum / (d.length/4);
       for (var i = 0; i < d.length; i += 4) {
-        var avg = (d[i] + d[i+1] + d[i+2]) / 3;
-        var v = avg > mean ? 255 : 0;
-        d[i] = d[i+1] = d[i+2] = v;
+        var v = ((d[i]+d[i+1]+d[i+2])/3) > mean ? 255 : 0;
+        d[i]=d[i+1]=d[i+2]=v;
       }
     }
-
     return jsQR(img.data, target, target, { inversionAttempts:"attemptBoth" });
   }
 
   function tick() {
     if (!scanning) return;
-    try {
-      var video = document.getElementById("video");
-      if (video.readyState >= 2 && video.videoWidth > 0 && typeof jsQR !== "undefined") {
-        scanFrame++;
-        var code = null;
+    var video = document.getElementById("video");
 
-        // หมุนเวียนหลายวิธีในแต่ละเฟรม เพื่อเพิ่มโอกาสอ่านติดบนกล้องไม่ชัด
-        var mode = scanFrame % 4;
-        if (mode === 0)      code = decodeRegion(video, 0.75, 500, false);
-        else if (mode === 1) code = decodeRegion(video, 0.55, 420, false); // จ่อใกล้ QR ใหญ่
-        else if (mode === 2) code = decodeRegion(video, 0.95, 600, false); // จ่อไกล QR เล็ก
-        else                 code = decodeRegion(video, 0.75, 500, true);  // threshold สำหรับภาพเบลอ
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      scanFrame++;
 
-        if (code && code.data && !cooldown) {
-          cooldown = true;
-          soundScan();
-          onScanned(code.data);
-        }
+      if (useNative && barcodeDetector) {
+        // ใช้ตัวสแกนของระบบ — ส่ง video ตรงๆ
+        barcodeDetector.detect(video)
+          .then(function(codes){
+            if (codes && codes.length > 0 && !cooldown) {
+              cooldown = true;
+              soundScan();
+              onScanned(codes[0].rawValue);
+            } else if (scanning) {
+              requestAnimationFrame(tick);
+            }
+          })
+          .catch(function(){
+            // ถ้า native พังกลางทาง สลับไป jsQR
+            useNative = false;
+            if (scanning) requestAnimationFrame(tick);
+          });
+        return; // รอ promise — ไม่เรียก requestAnimationFrame ซ้ำ
       }
-    } catch(e){}
+
+      // jsQR fallback
+      if (typeof jsQR !== "undefined") {
+        try {
+          var code = decodeJsQR(video);
+          if (code && code.data && !cooldown) {
+            cooldown = true;
+            soundScan();
+            onScanned(code.data);
+            return;
+          }
+        } catch(e){}
+      }
+    }
+
     requestAnimationFrame(tick);
   }
 
