@@ -235,13 +235,15 @@
       video.srcObject = s;
 
       video.onloadedmetadata = function() {
-        video.play().then(function() {
-          document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
-          addLog("วิดีโอ: " + video.videoWidth + "x" + video.videoHeight);
-          frameCount = 0;
-          requestAnimationFrame(tick);
-        });
-      };
+  video.play();
+};
+
+video.onplaying = function() {
+  document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
+  addLog("วิดีโอ: " + video.videoWidth + "x" + video.videoHeight);
+  frameCount = 0;
+  requestAnimationFrame(tick);
+};
     })
     .catch(function(err) {
       addLog("❌ " + err.name + ": " + err.message, "err");
