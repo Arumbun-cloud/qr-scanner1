@@ -3,331 +3,500 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>QR Scanner</title>
+<title>QR Check-in</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#000; overflow:hidden; width:100vw; height:100vh; font-family:'Segoe UI',sans-serif; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-  #video { position:fixed; top:0; left:0; width:100vw; height:100vh; object-fit:cover; z-index:1; }
+  :root {
+    --bg:#0a0e1a;
+    --ink:#f8fafc;
+    --gold:#d4af37;
+    --gold-soft:#e8d39a;
+  }
 
-  .ui-layer { position:fixed; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
+  body {
+    font-family:'Prompt',sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    overflow:hidden;
+    width:100vw; height:100vh;
+    position:relative;
+  }
 
-  .top-bar { width:100%; padding:16px 20px 12px; background:linear-gradient(to bottom,rgba(0,0,0,0.75),transparent); display:flex; align-items:center; justify-content:space-between; }
-  .top-title { color:#fff; font-size:18px; font-weight:700; text-shadow:0 1px 6px rgba(0,0,0,0.8); }
-  .btn-icon { background:rgba(255,255,255,0.2); border:1.5px solid rgba(255,255,255,0.4); border-radius:50%; width:48px; height:48px; display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; color:#fff; }
-  .btn-icon:active { background:rgba(255,255,255,0.4); }
+  /* ===== SCREENS ===== */
+  .screen {
+    position:fixed; inset:0;
+    display:none;
+    flex-direction:column;
+    z-index:1;
+  }
+  .screen.active { display:flex; animation:fadeScale 0.5s cubic-bezier(0.22,1,0.36,1); }
 
-  .center-area { display:flex; flex-direction:column; align-items:center; gap:14px; }
-  .qr-frame { width:min(72vw,280px); height:min(72vw,280px); position:relative; }
-  .qr-frame::before,.qr-frame::after,.qr-frame .c1,.qr-frame .c2 { content:''; position:absolute; width:44px; height:44px; border-color:#fff; border-style:solid; }
-  .qr-frame::before { top:0;left:0;    border-width:4px 0 0 4px; border-radius:6px 0 0 0; }
-  .qr-frame::after  { top:0;right:0;   border-width:4px 4px 0 0; border-radius:0 6px 0 0; }
-  .qr-frame .c1     { bottom:0;right:0; border-width:0 4px 4px 0; border-radius:0 0 6px 0; }
-  .qr-frame .c2     { bottom:0;left:0;  border-width:0 0 4px 4px; border-radius:0 0 0 6px; }
-  .scan-line { position:absolute; left:5%; width:90%; height:3px; background:linear-gradient(90deg,transparent,#22c55e 40%,#22c55e 60%,transparent); border-radius:2px; animation:scanMove 1.8s ease-in-out infinite; box-shadow:0 0 8px #22c55e; }
-  @keyframes scanMove { 0%{top:8%;} 100%{top:88%;} }
-  .scan-hint { color:rgba(255,255,255,0.9); font-size:15px; font-weight:500; text-shadow:0 1px 6px rgba(0,0,0,0.9); text-align:center; }
+  @keyframes fadeScale {
+    from { opacity:0; transform:scale(1.04); }
+    to   { opacity:1; transform:scale(1); }
+  }
 
-  .debug-panel { width:calc(100% - 32px); background:rgba(0,0,0,0.85); border:1px solid rgba(234,179,8,0.5); border-radius:14px; padding:12px 14px; margin:0 16px; }
-  .debug-title { font-size:11px; font-weight:700; color:#eab308; letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
-  .debug-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:0.5px solid rgba(255,255,255,0.08); gap:10px; }
-  .debug-row:last-child { border-bottom:none; }
-  .debug-key { font-size:11px; color:rgba(255,255,255,0.45); white-space:nowrap; flex-shrink:0; }
-  .debug-val { font-size:12px; color:#f1f5f9; text-align:right; word-break:break-all; font-family:monospace; }
-  .debug-val.ok{color:#22c55e;} .debug-val.err{color:#f87171;} .debug-val.warn{color:#eab308;}
-  .debug-log { margin-top:8px; max-height:80px; overflow-y:auto; }
-  .debug-log-row { font-size:11px; font-family:monospace; color:rgba(255,255,255,0.5); padding:2px 0; border-bottom:0.5px solid rgba(255,255,255,0.05); }
-  .debug-log-row.found{color:#22c55e;font-weight:700;} .debug-log-row.err{color:#f87171;}
+  /* ===== SCAN SCREEN ===== */
+  #video {
+    position:fixed; top:0; left:0;
+    width:100vw; height:100vh;
+    object-fit:cover; z-index:0;
+  }
 
-  .bottom-panel { width:100%; }
-  .toast { display:none; margin:0 16px 10px; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.5); }
-  .toast.show { display:block; }
-  .toast-header { padding:11px 16px; display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:#fff; }
-  .toast-header.success { background:#16a34a; }
-  .toast-header.error   { background:#dc2626; }
-  .toast-body { background:rgba(15,23,42,0.95); padding:12px 16px; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .toast-chip { background:rgba(255,255,255,0.07); border-radius:10px; padding:9px 12px; }
-  .toast-chip-label { font-size:10px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:3px; }
-  .toast-chip-value { font-size:17px; font-weight:800; color:#fff; word-break:break-all; }
+  .scan-ui { position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:0; }
 
-  .save-bar { display:none; margin:0 16px 16px; padding:10px 16px; border-radius:12px; font-size:13px; font-weight:600; text-align:center; color:#fff; }
-  .save-bar.show{display:block;} .save-bar.saving{background:rgba(37,99,235,0.8);} .save-bar.saved{background:rgba(22,163,74,0.8);} .save-bar.failed{background:rgba(220,38,38,0.8);}
+  .scan-top {
+    width:100%;
+    padding:calc(env(safe-area-inset-top,0) + 20px) 24px 16px;
+    background:linear-gradient(180deg,rgba(10,14,26,0.85),transparent);
+    display:flex; align-items:center; justify-content:space-between;
+  }
 
-  .perm-screen { display:none; position:fixed; inset:0; background:#0f172a; z-index:10; flex-direction:column; align-items:center; justify-content:center; padding:32px 24px; text-align:center; }
-  .perm-screen.show { display:flex; }
-  .perm-icon{font-size:56px;margin-bottom:16px;} .perm-title{font-size:20px;font-weight:700;color:#f1f5f9;margin-bottom:10px;}
-  .perm-desc{font-size:14px;color:#64748b;line-height:1.8;margin-bottom:28px;} .btn-retry{background:#2563eb;color:#fff;border:none;border-radius:14px;padding:16px 36px;font-size:16px;font-weight:700;cursor:pointer;}
-  canvas { display:none; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .brand-logo {
+    width:38px; height:38px; border-radius:11px;
+    background:linear-gradient(135deg,var(--gold),#b8941f);
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+    box-shadow:0 4px 14px rgba(212,175,55,0.4);
+  }
+  .brand-text { font-size:17px; font-weight:600; letter-spacing:0.3px; }
+  .brand-text span { color:var(--gold); }
+
+  .btn-flip {
+    width:46px; height:46px; border-radius:50%;
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    backdrop-filter:blur(10px);
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px; cursor:pointer; color:#fff;
+  }
+  .btn-flip:active { transform:scale(0.92); }
+
+  .scan-center { display:flex; flex-direction:column; align-items:center; gap:22px; }
+
+  .qr-frame { width:min(70vw,270px); height:min(70vw,270px); position:relative; }
+  .qr-corner { position:absolute; width:38px; height:38px; border:3px solid var(--gold); }
+  .qr-corner.tl { top:0; left:0; border-right:none; border-bottom:none; border-radius:8px 0 0 0; }
+  .qr-corner.tr { top:0; right:0; border-left:none; border-bottom:none; border-radius:0 8px 0 0; }
+  .qr-corner.bl { bottom:0; left:0; border-right:none; border-top:none; border-radius:0 0 0 8px; }
+  .qr-corner.br { bottom:0; right:0; border-left:none; border-top:none; border-radius:0 0 8px 0; }
+
+  .scan-beam {
+    position:absolute; left:6%; width:88%; height:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);
+    box-shadow:0 0 12px var(--gold);
+    animation:beam 2.4s ease-in-out infinite;
+  }
+  @keyframes beam { 0%{top:6%;} 50%{top:92%;} 100%{top:6%;} }
+
+  .scan-hint {
+    font-size:15px; font-weight:300;
+    color:rgba(255,255,255,0.85);
+    text-shadow:0 1px 8px rgba(0,0,0,0.9);
+    letter-spacing:0.5px;
+  }
+
+  .scan-bottom {
+    width:100%;
+    padding:28px 24px calc(env(safe-area-inset-bottom,0) + 32px);
+    background:linear-gradient(0deg,rgba(10,14,26,0.85),transparent);
+    text-align:center;
+  }
+  .scan-status {
+    font-size:13px; font-weight:300;
+    color:rgba(255,255,255,0.6);
+    letter-spacing:1px;
+  }
+  .scan-status .dot {
+    display:inline-block; width:7px; height:7px;
+    background:var(--gold); border-radius:50%;
+    margin-right:7px; vertical-align:middle;
+    animation:pulse 1.4s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+  /* ===== QUESTION SCREENS ===== */
+  .q-screen {
+    background:
+      radial-gradient(ellipse at top,rgba(212,175,55,0.08),transparent 60%),
+      var(--bg);
+    padding:calc(env(safe-area-inset-top,0) + 40px) 26px calc(env(safe-area-inset-bottom,0) + 32px);
+    overflow-y:auto;
+  }
+
+  .q-progress {
+    display:flex; gap:8px; justify-content:center;
+    margin-bottom:36px;
+  }
+  .q-dot { width:34px; height:4px; border-radius:2px; background:rgba(255,255,255,0.15); transition:0.4s; }
+  .q-dot.active { background:var(--gold); width:48px; }
+  .q-dot.done { background:var(--gold-soft); }
+
+  .q-student {
+    text-align:center;
+    margin-bottom:8px;
+    font-size:13px; font-weight:300;
+    color:rgba(255,255,255,0.5);
+    letter-spacing:1px;
+  }
+  .q-student b { color:var(--gold-soft); font-weight:500; }
+
+  .q-number {
+    text-align:center;
+    font-size:13px; font-weight:500;
+    color:var(--gold);
+    letter-spacing:3px; text-transform:uppercase;
+    margin-bottom:14px;
+  }
+
+  .q-title {
+    text-align:center;
+    font-size:26px; font-weight:600;
+    line-height:1.4;
+    margin-bottom:6px;
+    letter-spacing:0.3px;
+  }
+  .q-sub {
+    text-align:center;
+    font-size:14px; font-weight:300;
+    color:rgba(255,255,255,0.45);
+    margin-bottom:40px;
+    letter-spacing:1px;
+  }
+
+  .q-options {
+    display:flex; flex-direction:column; gap:14px;
+    max-width:440px; width:100%;
+    margin:0 auto;
+  }
+
+  .opt {
+    display:flex; align-items:center; gap:18px;
+    padding:18px 22px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.09);
+    border-radius:18px;
+    cursor:pointer;
+    transition:0.25s cubic-bezier(0.22,1,0.36,1);
+    position:relative;
+    overflow:hidden;
+  }
+  .opt::before {
+    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--gold); transform:scaleY(0); transition:0.25s;
+  }
+  .opt:active {
+    transform:scale(0.98);
+    background:rgba(212,175,55,0.12);
+    border-color:var(--gold);
+  }
+  .opt:active::before { transform:scaleY(1); }
+
+  .opt-emoji {
+    font-size:32px;
+    width:48px; text-align:center;
+    flex-shrink:0;
+  }
+  .opt-label {
+    font-size:18px; font-weight:400;
+    letter-spacing:0.3px;
+  }
+
+  .opt.selected {
+    background:rgba(212,175,55,0.15);
+    border-color:var(--gold);
+    box-shadow:0 6px 24px rgba(212,175,55,0.2);
+  }
+  .opt.selected::before { transform:scaleY(1); }
+
+  /* ===== SAVING / DONE SCREEN ===== */
+  .done-screen {
+    background:
+      radial-gradient(ellipse at center,rgba(212,175,55,0.12),transparent 55%),
+      var(--bg);
+    align-items:center; justify-content:center;
+    text-align:center;
+  }
+
+  .done-circle {
+    width:120px; height:120px; border-radius:50%;
+    background:linear-gradient(135deg,var(--gold),#b8941f);
+    display:flex; align-items:center; justify-content:center;
+    font-size:60px;
+    margin-bottom:32px;
+    box-shadow:0 12px 48px rgba(212,175,55,0.45);
+    animation:popIn 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn { from{transform:scale(0);opacity:0;} to{transform:scale(1);opacity:1;} }
+
+  .done-title { font-size:28px; font-weight:600; margin-bottom:10px; letter-spacing:0.5px; }
+  .done-sub { font-size:15px; font-weight:300; color:rgba(255,255,255,0.55); letter-spacing:0.5px; }
+
+  .spinner {
+    width:56px; height:56px;
+    border:3px solid rgba(212,175,55,0.2);
+    border-top-color:var(--gold);
+    border-radius:50%;
+    animation:spin 0.8s linear infinite;
+    margin-bottom:28px;
+  }
+  @keyframes spin { to{transform:rotate(360deg);} }
+
+  /* permission */
+  .perm-screen { background:var(--bg); align-items:center; justify-content:center; padding:40px 30px; text-align:center; z-index:20; }
+  .perm-icon{font-size:60px;margin-bottom:20px;} .perm-title{font-size:22px;font-weight:600;margin-bottom:12px;}
+  .perm-desc{font-size:15px;font-weight:300;color:rgba(255,255,255,0.5);line-height:1.8;margin-bottom:32px;}
+  .btn-retry{background:linear-gradient(135deg,var(--gold),#b8941f);color:#0a0e1a;border:none;border-radius:16px;padding:16px 40px;font-size:16px;font-weight:600;font-family:'Prompt';cursor:pointer;}
+
+  canvas{display:none;}
 </style>
 </head>
 <body>
 
-<video id="video" playsinline autoplay muted></video>
-<canvas id="canvas"></canvas>
-
-<div class="ui-layer">
-  <div class="top-bar">
-    <div class="top-title">📷 QR Scanner</div>
-    <div class="btn-icon" onclick="flipCamera()">🔄</div>
-  </div>
-
-  <div class="center-area">
-    <div class="qr-frame"><div class="c1"></div><div class="c2"></div><div class="scan-line"></div></div>
-    <div class="scan-hint" id="scanHint">จ่อ QR Code ให้อยู่ในกรอบ</div>
-  </div>
-
-  <div class="bottom-panel">
-    <div class="debug-panel">
-      <div class="debug-title">🔍 Debug</div>
-      <div class="debug-row"><span class="debug-key">กล้อง</span><span class="debug-val" id="dbCamera">รอ...</span></div>
-      <div class="debug-row"><span class="debug-key">ขนาด</span><span class="debug-val" id="dbSize">—</span></div>
-      <div class="debug-row"><span class="debug-key">readyState</span><span class="debug-val" id="dbReady">—</span></div>
-      <div class="debug-row"><span class="debug-key">Frame</span><span class="debug-val" id="dbFrame">0</span></div>
-      <div class="debug-row"><span class="debug-key">ผล scan</span><span class="debug-val" id="dbResult">ยังไม่เจอ</span></div>
-      <div class="debug-row"><span class="debug-key">ข้อมูล</span><span class="debug-val" id="dbData" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;">—</span></div>
-      <div class="debug-title" style="margin-top:8px;">📋 Log</div>
-      <div class="debug-log" id="debugLog"></div>
+<!-- ===== SCREEN 1: SCANNER ===== -->
+<div class="screen active" id="screenScan">
+  <video id="video" playsinline autoplay muted></video>
+  <div class="scan-ui">
+    <div class="scan-top">
+      <div class="brand">
+        <div class="brand-logo">📷</div>
+        <div class="brand-text">QR <span>Check-in</span></div>
+      </div>
+      <div class="btn-flip" onclick="flipCamera()">🔄</div>
     </div>
-
-    <div class="toast" id="toast">
-      <div class="toast-header success" id="toastHeader"><span id="toastIcon">✅</span><span id="toastText">สแกนสำเร็จ</span></div>
-      <div class="toast-body" id="toastBody"></div>
+    <div class="scan-center">
+      <div class="qr-frame">
+        <div class="qr-corner tl"></div><div class="qr-corner tr"></div>
+        <div class="qr-corner bl"></div><div class="qr-corner br"></div>
+        <div class="scan-beam"></div>
+      </div>
+      <div class="scan-hint">จ่อ QR Code ให้อยู่ในกรอบ</div>
     </div>
-    <div class="save-bar" id="saveBar"></div>
+    <div class="scan-bottom">
+      <div class="scan-status"><span class="dot"></span>กำลังสแกน</div>
+    </div>
   </div>
 </div>
 
-<div class="perm-screen" id="permScreen">
+<!-- ===== SCREEN 2: QUESTION 1 (FEELING) ===== -->
+<div class="screen q-screen" id="screenQ1">
+  <div class="q-progress">
+    <div class="q-dot active" id="d1"></div>
+    <div class="q-dot" id="d2"></div>
+  </div>
+  <div class="q-student">สวัสดี <b id="q1name">—</b></div>
+  <div class="q-number">คำถามที่ 1 / 2</div>
+  <div class="q-title">วันนี้รู้สึกอย่างไรบ้าง?</div>
+  <div class="q-sub">Feeling</div>
+  <div class="q-options" id="q1options">
+    <div class="opt" onclick="answerQ1(this,'😆 สนุก')"><div class="opt-emoji">😆</div><div class="opt-label">สนุก</div></div>
+    <div class="opt" onclick="answerQ1(this,'🙂 ดีปกติ')"><div class="opt-emoji">🙂</div><div class="opt-label">ดีปกติ</div></div>
+    <div class="opt" onclick="answerQ1(this,'😢 เหนื่อยหน่อย')"><div class="opt-emoji">😢</div><div class="opt-label">เหนื่อยหน่อย</div></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 3: QUESTION 2 (DIFFICULTY) ===== -->
+<div class="screen q-screen" id="screenQ2">
+  <div class="q-progress">
+    <div class="q-dot done" id="d1b"></div>
+    <div class="q-dot active" id="d2b"></div>
+  </div>
+  <div class="q-student">สวัสดี <b id="q2name">—</b></div>
+  <div class="q-number">คำถามที่ 2 / 2</div>
+  <div class="q-title">วันนี้ความยากเป็นอย่างไรบ้าง?</div>
+  <div class="q-sub">Difficulty</div>
+  <div class="q-options" id="q2options">
+    <div class="opt" onclick="answerQ2(this,'🔵 ง่ายมาก')"><div class="opt-emoji">🔵</div><div class="opt-label">ง่ายมาก</div></div>
+    <div class="opt" onclick="answerQ2(this,'🟢 ค่อนข้างง่าย')"><div class="opt-emoji">🟢</div><div class="opt-label">ค่อนข้างง่าย</div></div>
+    <div class="opt" onclick="answerQ2(this,'🟡 พอดี')"><div class="opt-emoji">🟡</div><div class="opt-label">พอดี</div></div>
+    <div class="opt" onclick="answerQ2(this,'🟠 ค่อนข้างยาก')"><div class="opt-emoji">🟠</div><div class="opt-label">ค่อนข้างยาก</div></div>
+    <div class="opt" onclick="answerQ2(this,'🔴 ยากมาก')"><div class="opt-emoji">🔴</div><div class="opt-label">ยากมาก</div></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 4: SAVING / DONE ===== -->
+<div class="screen done-screen" id="screenDone">
+  <div id="savingState">
+    <div class="spinner"></div>
+    <div class="done-title">กำลังบันทึก...</div>
+    <div class="done-sub">โปรดรอสักครู่</div>
+  </div>
+  <div id="doneState" style="display:none;">
+    <div class="done-circle">✓</div>
+    <div class="done-title">บันทึกเรียบร้อย!</div>
+    <div class="done-sub" id="doneName">ขอบคุณค่ะ</div>
+  </div>
+</div>
+
+<!-- permission -->
+<div class="screen perm-screen" id="screenPerm">
   <div class="perm-icon">🔒</div>
   <div class="perm-title">ไม่สามารถเข้ากล้องได้</div>
-  <div class="perm-desc">กรุณาอนุญาตการใช้กล้อง<br>แล้วกดลองใหม่<br><br>⚠️ ต้องเปิดผ่าน <strong style="color:#f1f5f9">Chrome</strong> หรือ <strong style="color:#f1f5f9">Safari</strong></div>
-  <button class="btn-retry" onclick="startCamera()">🔄 ลองใหม่</button>
+  <div class="perm-desc">กรุณาอนุญาตการใช้กล้อง<br>แล้วกดลองใหม่<br><br>⚠️ ต้องเปิดผ่าน Chrome หรือ Safari</div>
+  <button class="btn-retry" onclick="restartScanner()">ลองใหม่</button>
 </div>
 
+<canvas id="canvas"></canvas>
+
 <script>
-  // โหลด jsQR แบบมี fallback หลาย CDN
+  // โหลด jsQR แบบ fallback หลาย CDN
   var JSQR_CDNS = [
     "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",
     "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js",
     "https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"
   ];
-  var jsqrLoaded = false;
-
   function loadJsQR(idx) {
-    if (idx >= JSQR_CDNS.length) {
-      document.getElementById && console.error("โหลด jsQR ไม่ได้ทุก CDN");
-      return;
-    }
+    if (idx >= JSQR_CDNS.length) return;
     var s = document.createElement("script");
     s.src = JSQR_CDNS[idx];
-    s.onload = function() {
-      if (typeof jsQR !== "undefined") {
-        jsqrLoaded = true;
-        try { addLog("jsQR โหลดสำเร็จ", "found"); } catch(e) {}
-      } else {
-        loadJsQR(idx + 1);
-      }
-    };
-    s.onerror = function() { loadJsQR(idx + 1); };
+    s.onload  = function(){ if (typeof jsQR === "undefined") loadJsQR(idx+1); };
+    s.onerror = function(){ loadJsQR(idx+1); };
     document.head.appendChild(s);
   }
-</script>
+  loadJsQR(0);
 
-<script>
+  // ===== ใส่ Apps Script URL ตรงนี้ =====
   var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGEwOD2y541aYTW2brTLxKr_C4gCE2XpQDl5p20N3IR6z5GnQ1hYy43ZxdIPf8eNtv/exec";
+  // =====================================
 
   var facingMode = "environment";
   var stream     = null;
-  var cooldown   = false;
-  var lastResult = "";
-  var frameCount = 0;
-  var logLines   = [];
   var scanning   = false;
+  var cooldown   = false;
 
-  function addLog(msg, type) {
-    var t  = new Date();
-    var ts = t.getHours().toString().padStart(2,"0")+":"+t.getMinutes().toString().padStart(2,"0")+":"+t.getSeconds().toString().padStart(2,"0");
-    logLines.unshift({ msg:msg, type:type||"", ts:ts });
-    if (logLines.length > 20) logLines = logLines.slice(0,20);
-    document.getElementById("debugLog").innerHTML = logLines.map(function(l){
-      return '<div class="debug-log-row '+l.type+'">['+l.ts+'] '+l.msg+'</div>';
-    }).join("");
+  // เก็บคำตอบของรอบปัจจุบัน
+  var current = { student_id:"", nickname:"", feeling:"", difficulty:"" };
+
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
+    document.getElementById(id).classList.add("active");
   }
 
+  // ---------- CAMERA ----------
   function startCamera() {
-    document.getElementById("permScreen").className = "perm-screen";
-    document.getElementById("dbCamera").textContent = "กำลังเปิด...";
-    document.getElementById("dbCamera").className   = "debug-val warn";
     scanning = false;
-
-    if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
-    addLog("เปิดกล้อง: " + facingMode);
+    if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
 
     navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      video:{ facingMode:{ideal:facingMode}, width:{ideal:1280}, height:{ideal:720} }
     })
-    .then(function(s) {
+    .then(function(s){
       stream = s;
-      var label = (s.getVideoTracks()[0].label || facingMode).substring(0,20);
-      addLog("กล้องพร้อม: " + label, "found");
-      document.getElementById("dbCamera").textContent = label + " ✅";
-      document.getElementById("dbCamera").className   = "debug-val ok";
-
       var video = document.getElementById("video");
       video.srcObject = s;
-      video.play().catch(function(e){ addLog("play err: "+e.message,"err"); });
-
-      // เริ่ม tick loop ทันที ไม่รอ event ใดๆ
-      scanning   = true;
-      frameCount = 0;
+      video.play().catch(function(){});
+      scanning = true;
       requestAnimationFrame(tick);
     })
-    .catch(function(err) {
-      addLog("❌ " + err.name + ": " + err.message, "err");
-      document.getElementById("dbCamera").textContent = "❌ " + err.name;
-      document.getElementById("dbCamera").className   = "debug-val err";
-      document.getElementById("permScreen").className = "perm-screen show";
+    .catch(function(){
+      showScreen("screenPerm");
     });
+  }
+
+  function restartScanner() {
+    showScreen("screenScan");
+    startCamera();
   }
 
   function flipCamera() {
     facingMode = facingMode === "environment" ? "user" : "environment";
-    addLog("สลับ → " + facingMode);
     startCamera();
   }
 
   function tick() {
     if (!scanning) return;
-
     try {
       var video  = document.getElementById("video");
       var canvas = document.getElementById("canvas");
-
-      document.getElementById("dbReady").textContent = video.readyState;
-
       if (video.readyState >= 2 && video.videoWidth > 0) {
-        frameCount++;
-        document.getElementById("dbFrame").textContent = frameCount;
-
-        if (frameCount === 1) {
-          document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
-          addLog("เริ่มสแกน: " + video.videoWidth + "x" + video.videoHeight, "found");
-        }
-
-        var vw = video.videoWidth;
-        var vh = video.videoHeight;
-
-        // ย่อภาพลงเหลือกว้างสุด 480px เพื่อให้ jsQR ทำงานเร็วและไม่ค้าง
-        var scale = Math.min(480 / vw, 1);
-        var w = Math.round(vw * scale);
-        var h = Math.round(vh * scale);
-
-        canvas.width = w;
-        canvas.height = h;
-        var ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, w, h);
-
-        var code = null;
-        if (typeof jsQR !== "undefined") {
+        var vw=video.videoWidth, vh=video.videoHeight;
+        var scale=Math.min(480/vw,1);
+        var w=Math.round(vw*scale), h=Math.round(vh*scale);
+        canvas.width=w; canvas.height=h;
+        var ctx=canvas.getContext("2d");
+        ctx.drawImage(video,0,0,w,h);
+        if (typeof jsQR!=="undefined") {
           try {
-            var img = ctx.getImageData(0, 0, w, h);
-            code = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
-          } catch(decodeErr) {
-            if (frameCount % 60 === 0) addLog("decode err: " + decodeErr.message, "err");
-          }
-        } else {
-          if (frameCount % 30 === 0) {
-            document.getElementById("dbResult").textContent = "⏳ รอ jsQR โหลด...";
-            document.getElementById("dbResult").className = "debug-val warn";
-          }
-        }
-
-        if (code && code.data) {
-          document.getElementById("dbResult").textContent = "✅ เจอ!";
-          document.getElementById("dbResult").className   = "debug-val ok";
-          document.getElementById("dbData").textContent   = code.data.substring(0,50);
-          document.getElementById("dbData").className     = "debug-val ok";
-
-          if (code.data !== lastResult && !cooldown) {
-            lastResult = code.data;
-            cooldown   = true;
-            addLog("🎯 " + code.data.substring(0,40), "found");
-            processQR(code.data);
-            setTimeout(function(){ cooldown=false; lastResult=""; }, 4000);
-          }
-        } else if (frameCount % 30 === 0) {
-          document.getElementById("dbResult").textContent = "ไม่เจอ (f"+frameCount+")";
-          document.getElementById("dbResult").className   = "debug-val warn";
+            var img=ctx.getImageData(0,0,w,h);
+            var code=jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});
+            if (code && code.data && !cooldown) {
+              cooldown=true;
+              onScanned(code.data);
+            }
+          } catch(e){}
         }
       }
-    } catch(err) {
-      addLog("tick err: " + err.message, "err");
-    }
-
-    // เรียกรอบถัดไปเสมอ ไม่ว่าจะ error หรือไม่
+    } catch(e){}
     requestAnimationFrame(tick);
   }
 
-  function processQR(text) {
+  // ---------- FLOW ----------
+  function onScanned(text) {
     try {
       var url = new URL(text);
-      var studentId = url.searchParams.get("student_id") || "";
-      var nickname  = url.searchParams.get("nickname")   || "";
-      addLog("id="+studentId+" name="+nickname);
-      if (!studentId && !nickname) { showError("ไม่พบ student_id หรือ nickname"); return; }
-      showSuccess(studentId, nickname);
-      saveToSheet(studentId, nickname);
+      var sid = url.searchParams.get("student_id") || "";
+      var nick= url.searchParams.get("nickname")   || "";
+      if (!sid && !nick) { cooldown=false; return; }
+
+      // หยุดสแกน เริ่ม flow คำถาม
+      scanning = false;
+      if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+
+      current = { student_id:sid, nickname:nick, feeling:"", difficulty:"" };
+
+      // reset UI
+      document.getElementById("q1name").textContent = nick || sid;
+      document.getElementById("q2name").textContent = nick || sid;
+      document.querySelectorAll(".opt").forEach(function(o){ o.classList.remove("selected"); });
+
+      showScreen("screenQ1");
     } catch(e) {
-      addLog("URL ไม่ถูกต้อง: "+text.substring(0,30),"err");
-      showError("QR รูปแบบไม่ถูกต้อง");
+      cooldown = false;
     }
   }
 
-  function showSuccess(id, name) {
-    document.getElementById("toastIcon").textContent = "✅";
-    document.getElementById("toastText").textContent = "สแกนสำเร็จ!";
-    document.getElementById("toastHeader").className = "toast-header success";
-    document.getElementById("toastBody").innerHTML =
-      '<div class="toast-chip"><div class="toast-chip-label">Student ID</div><div class="toast-chip-value">'+id+'</div></div>'+
-      '<div class="toast-chip"><div class="toast-chip-label">Nickname</div><div class="toast-chip-value">'+name+'</div></div>';
-    document.getElementById("toast").className = "toast show";
-    document.getElementById("scanHint").textContent = "✅ สำเร็จ — รอ 4 วิ";
-    setTimeout(function(){ document.getElementById("scanHint").textContent = "จ่อ QR Code ให้อยู่ในกรอบ"; }, 4000);
+  function answerQ1(el, value) {
+    el.classList.add("selected");
+    current.feeling = value;
+    setTimeout(function(){ showScreen("screenQ2"); }, 350);
   }
 
-  function showError(msg) {
-    document.getElementById("toastIcon").textContent = "❌";
-    document.getElementById("toastText").textContent = msg;
-    document.getElementById("toastHeader").className = "toast-header error";
-    document.getElementById("toastBody").innerHTML   = "";
-    document.getElementById("toast").className = "toast show";
+  function answerQ2(el, value) {
+    el.classList.add("selected");
+    current.difficulty = value;
+    setTimeout(function(){ saveAndFinish(); }, 350);
   }
 
-  function saveToSheet(studentId, nickname) {
-    var bar = document.getElementById("saveBar");
-    bar.textContent = "⏳ กำลังบันทึก...";
-    bar.className   = "save-bar show saving";
-    addLog("ส่งข้อมูล → Sheets");
+  function saveAndFinish() {
+    showScreen("screenDone");
+    document.getElementById("savingState").style.display = "block";
+    document.getElementById("doneState").style.display   = "none";
+
     fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ student_id: studentId, nickname: nickname })
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(current)
     })
     .then(function(res){ return res.json(); })
-    .then(function(data){
-      var ok = data.status === "success";
-      bar.textContent = ok ? "✅ บันทึกลง Google Sheets แล้ว" : "❌ บันทึกไม่สำเร็จ";
-      bar.className   = "save-bar show " + (ok ? "saved" : "failed");
-      addLog("Sheets: " + (ok?"✅ success":"❌ failed"), ok?"found":"err");
-    })
-    .catch(function(err){
-      bar.textContent = "❌ เชื่อมต่อไม่ได้";
-      bar.className   = "save-bar show failed";
-      addLog("fetch error: "+err.message, "err");
-    });
+    .then(function(){ finishDone(); })
+    .catch(function(){ finishDone(); }); // ถึง error ก็วนกลับ ไม่ค้าง
   }
 
-  loadJsQR(0);
+  function finishDone() {
+    document.getElementById("savingState").style.display = "none";
+    document.getElementById("doneState").style.display   = "block";
+    document.getElementById("doneName").textContent = "ขอบคุณ " + (current.nickname || "") + " 🎉";
+
+    // รอ 1.8 วิ แล้ววนกลับไปหน้าสแกน
+    setTimeout(function(){
+      cooldown = false;
+      restartScanner();
+    }, 1800);
+  }
+
   window.addEventListener("load", startCamera);
 </script>
 </body>
