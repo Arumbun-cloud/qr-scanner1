@@ -172,72 +172,65 @@
   function tick() {
     if (!scanning) return;
 
-    var video  = document.getElementById("video");
-    var canvas = document.getElementById("canvas");
+    try {
+      var video  = document.getElementById("video");
+      var canvas = document.getElementById("canvas");
 
-    // อัป readyState ให้เห็น realtime
-    document.getElementById("dbReady").textContent = video.readyState;
+      document.getElementById("dbReady").textContent = video.readyState;
 
-    // *** แก้สำคัญ: ใช้ >= 2 แทน === 4 และเช็ค videoWidth ***
-    if (video.readyState >= 2 && video.videoWidth > 0) {
-      frameCount++;
-      document.getElementById("dbFrame").textContent = frameCount;
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        frameCount++;
+        document.getElementById("dbFrame").textContent = frameCount;
 
-      if (frameCount === 1) {
-        document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
-        addLog("เริ่มสแกน: " + video.videoWidth + "x" + video.videoHeight, "found");
-      }
-
-      var w = video.videoWidth;
-      var h = video.videoHeight;
-      canvas.width = w; canvas.height = h;
-      var ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, w, h);
-
-      var code = null;
-
-      // 1) full frame
-      var full = ctx.getImageData(0, 0, w, h);
-      code = jsQR(full.data, w, h, { inversionAttempts: "attemptBoth" });
-
-      // 2) crop กลาง 60%
-      if (!code) {
-        var x2=Math.floor(w*0.2), y2=Math.floor(h*0.2), w2=Math.floor(w*0.6), h2=Math.floor(h*0.6);
-        var crop = ctx.getImageData(x2, y2, w2, h2);
-        code = jsQR(crop.data, w2, h2, { inversionAttempts: "attemptBoth" });
-      }
-
-      // 3) threshold (ขาวดำ) สำหรับ QR บนหน้าจอ
-      if (!code) {
-        var th = ctx.getImageData(0, 0, w, h);
-        var d  = th.data;
-        for (var i=0; i<d.length; i+=4) {
-          var avg = (d[i]+d[i+1]+d[i+2])/3;
-          var v = avg > 120 ? 255 : 0;
-          d[i]=d[i+1]=d[i+2]=v;
+        if (frameCount === 1) {
+          document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
+          addLog("เริ่มสแกน: " + video.videoWidth + "x" + video.videoHeight, "found");
         }
-        code = jsQR(d, w, h, { inversionAttempts: "attemptBoth" });
-      }
 
-      if (code && code.data) {
-        document.getElementById("dbResult").textContent = "✅ เจอ!";
-        document.getElementById("dbResult").className   = "debug-val ok";
-        document.getElementById("dbData").textContent   = code.data.substring(0,50);
-        document.getElementById("dbData").className     = "debug-val ok";
+        var vw = video.videoWidth;
+        var vh = video.videoHeight;
 
-        if (code.data !== lastResult && !cooldown) {
-          lastResult = code.data;
-          cooldown   = true;
-          addLog("🎯 " + code.data.substring(0,40), "found");
-          processQR(code.data);
-          setTimeout(function(){ cooldown=false; lastResult=""; }, 4000);
+        // ย่อภาพลงเหลือกว้างสุด 480px เพื่อให้ jsQR ทำงานเร็วและไม่ค้าง
+        var scale = Math.min(480 / vw, 1);
+        var w = Math.round(vw * scale);
+        var h = Math.round(vh * scale);
+
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, w, h);
+
+        var code = null;
+        try {
+          var img = ctx.getImageData(0, 0, w, h);
+          code = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
+        } catch(decodeErr) {
+          if (frameCount % 60 === 0) addLog("decode err: " + decodeErr.message, "err");
         }
-      } else if (frameCount % 60 === 0) {
-        document.getElementById("dbResult").textContent = "ไม่เจอ (f"+frameCount+")";
-        document.getElementById("dbResult").className   = "debug-val warn";
+
+        if (code && code.data) {
+          document.getElementById("dbResult").textContent = "✅ เจอ!";
+          document.getElementById("dbResult").className   = "debug-val ok";
+          document.getElementById("dbData").textContent   = code.data.substring(0,50);
+          document.getElementById("dbData").className     = "debug-val ok";
+
+          if (code.data !== lastResult && !cooldown) {
+            lastResult = code.data;
+            cooldown   = true;
+            addLog("🎯 " + code.data.substring(0,40), "found");
+            processQR(code.data);
+            setTimeout(function(){ cooldown=false; lastResult=""; }, 4000);
+          }
+        } else if (frameCount % 30 === 0) {
+          document.getElementById("dbResult").textContent = "ไม่เจอ (f"+frameCount+")";
+          document.getElementById("dbResult").className   = "debug-val warn";
+        }
       }
+    } catch(err) {
+      addLog("tick err: " + err.message, "err");
     }
 
+    // เรียกรอบถัดไปเสมอ ไม่ว่าจะ error หรือไม่
     requestAnimationFrame(tick);
   }
 
