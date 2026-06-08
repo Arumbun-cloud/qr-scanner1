@@ -169,6 +169,44 @@
   .perm-desc{font-size:18px;font-weight:400;color:rgba(255,255,255,0.6);line-height:1.8;margin-bottom:32px;}
   .btn-retry{background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#fff;border:none;border-radius:20px;padding:18px 48px;font-size:20px;font-weight:700;font-family:'Mali';cursor:pointer;}
 
+  .speak-ico { font-size:0.7em; opacity:0.6; }
+  .btn-back {
+    margin-top:30px;
+    background:transparent;
+    border:2px solid rgba(200,134,26,0.4);
+    color:var(--gold-deep);
+    border-radius:18px;
+    padding:14px 34px;
+    font-size:20px; font-weight:600; font-family:'Mali';
+    cursor:pointer;
+  }
+  .btn-back:active { transform:scale(0.95); background:rgba(224,169,59,0.1); }
+
+  /* แถบแจ้งเตือนคิวค้างส่ง (offline) */
+  .offline-pill {
+    position:fixed; top:calc(env(safe-area-inset-top,0) + 10px); left:50%;
+    transform:translateX(-50%);
+    background:#e74c3c; color:#fff;
+    padding:8px 18px; border-radius:20px;
+    font-size:14px; font-weight:500;
+    z-index:50; display:none;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  }
+  .offline-pill.show { display:block; }
+
+  /* แจ้งเตือนสแกนซ้ำ */
+  .dup-toast {
+    position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    background:#3a2e1f; color:#fff;
+    padding:14px 26px; border-radius:18px;
+    font-size:18px; font-weight:500;
+    z-index:60; display:none;
+    box-shadow:0 6px 24px rgba(0,0,0,0.4);
+    white-space:nowrap;
+  }
+  .dup-toast.show { display:block; animation:dupIn 0.3s ease; }
+  @keyframes dupIn { from{opacity:0; transform:translateX(-50%) translateY(10px);} to{opacity:1; transform:translateX(-50%) translateY(0);} }
+
   canvas{display:none;}
 </style>
 </head>
@@ -206,7 +244,7 @@
 <div class="screen q-screen" id="screenQ1">
   <div class="q-progress"><div class="q-dot active"></div><div class="q-dot"></div></div>
   <div class="q-greeting">สวัสดี <span class="name" id="q1name">น้อง</span> 👋</div>
-  <div class="q-title">วันนี้รู้สึกอย่างไรบ้าง?</div>
+  <div class="q-title" onclick="speak('วันนี้รู้สึกอย่างไรบ้าง')">วันนี้รู้สึกอย่างไรบ้าง? <span class="speak-ico">🔊</span></div>
   <div class="q-sub">เลือกได้เลยนะ</div>
   <div class="q-options">
     <div class="opt" onclick="answerQ1(this,'😆 สนุก')"><div class="opt-emoji">😆</div><div class="opt-label">สนุก</div></div>
@@ -219,7 +257,7 @@
 <div class="screen q-screen" id="screenQ2">
   <div class="q-progress"><div class="q-dot done"></div><div class="q-dot active"></div></div>
   <div class="q-greeting">เก่งมาก <span class="name" id="q2name">น้อง</span> 🌟</div>
-  <div class="q-title">วันนี้ยากแค่ไหน?</div>
+  <div class="q-title" onclick="speak('วันนี้ยากแค่ไหน')">วันนี้ยากแค่ไหน? <span class="speak-ico">🔊</span></div>
   <div class="q-sub">เลือกได้เลยนะ</div>
   <div class="q-options">
     <div class="opt c-blue"   onclick="answerQ2(this,'🔵 ง่ายมาก')"><div class="opt-emoji">🔵</div><div class="opt-label">ง่ายมาก</div></div>
@@ -228,6 +266,7 @@
     <div class="opt c-orange" onclick="answerQ2(this,'🟠 ค่อนข้างยาก')"><div class="opt-emoji">🟠</div><div class="opt-label">ค่อนข้างยาก</div></div>
     <div class="opt c-red"    onclick="answerQ2(this,'🔴 ยากมาก')"><div class="opt-emoji">🔴</div><div class="opt-label">ยากมาก</div></div>
   </div>
+  <button class="btn-back" onclick="goBackToQ1()">← ย้อนกลับ</button>
 </div>
 
 <!-- DONE -->
@@ -251,6 +290,9 @@
   <div class="perm-desc">กรุณาอนุญาตการใช้กล้อง<br>แล้วกดลองใหม่<br><br>⚠️ ต้องเปิดผ่าน Chrome หรือ Safari</div>
   <button class="btn-retry" onclick="restartScanner()">ลองใหม่</button>
 </div>
+
+<div class="offline-pill" id="offlinePill">📡 มีข้อมูลรอส่ง <span id="queueCount">0</span> รายการ</div>
+<div class="dup-toast" id="dupToast">น้องคนนี้ตอบไปแล้ววันนี้ ✅</div>
 
 <canvas id="canvas"></canvas>
 
@@ -506,12 +548,119 @@
     requestAnimationFrame(tick);
   }
 
+  // ===== TEXT-TO-SPEECH ภาษาไทย =====
+  var thaiVoice = null;
+  function loadVoices() {
+    if (!("speechSynthesis" in window)) return;
+    var voices = speechSynthesis.getVoices();
+    thaiVoice = voices.filter(function(v){ return v.lang && v.lang.indexOf("th") === 0; })[0] || null;
+  }
+  if ("speechSynthesis" in window) {
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }
+  function speak(text) {
+    if (!("speechSynthesis" in window)) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = "th-TH";
+      u.rate = 0.95;
+      u.pitch = 1.1;
+      if (thaiVoice) u.voice = thaiVoice;
+      speechSynthesis.speak(u);
+    } catch(e){}
+  }
+
+  // ===== กันสแกนซ้ำในวันเดียว =====
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate();
+  }
+  function alreadyDoneToday(sid) {
+    try {
+      var raw = localStorage.getItem("done_" + todayKey());
+      if (!raw) return false;
+      return JSON.parse(raw).indexOf(sid) >= 0;
+    } catch(e){ return false; }
+  }
+  function markDoneToday(sid) {
+    try {
+      var key = "done_" + todayKey();
+      var list = [];
+      var raw = localStorage.getItem(key);
+      if (raw) list = JSON.parse(raw);
+      if (list.indexOf(sid) < 0) list.push(sid);
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch(e){}
+  }
+  function showDupToast() {
+    var t = document.getElementById("dupToast");
+    t.classList.add("show");
+    setTimeout(function(){ t.classList.remove("show"); }, 2500);
+  }
+
+  // ===== OFFLINE QUEUE (กันเน็ตหลุดข้อมูลหาย) =====
+  function getQueue() {
+    try { return JSON.parse(localStorage.getItem("send_queue") || "[]"); }
+    catch(e){ return []; }
+  }
+  function setQueue(q) {
+    try { localStorage.setItem("send_queue", JSON.stringify(q)); } catch(e){}
+    updateQueueUI();
+  }
+  function enqueue(data) {
+    var q = getQueue();
+    q.push(data);
+    setQueue(q);
+  }
+  function updateQueueUI() {
+    var q = getQueue();
+    var pill = document.getElementById("offlinePill");
+    if (q.length > 0) {
+      document.getElementById("queueCount").textContent = q.length;
+      pill.classList.add("show");
+    } else {
+      pill.classList.remove("show");
+    }
+  }
+  // พยายามส่งคิวที่ค้างอยู่
+  function flushQueue() {
+    var q = getQueue();
+    if (q.length === 0) return;
+    var item = q[0];
+    fetch(SCRIPT_URL, {
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body: JSON.stringify(item)
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(){
+      var cur = getQueue();
+      cur.shift();           // ลบตัวที่ส่งสำเร็จ
+      setQueue(cur);
+      if (cur.length > 0) flushQueue();  // ส่งตัวถัดไป
+    })
+    .catch(function(){ /* เน็ตยังไม่มา ไว้ลองใหม่ */ });
+  }
+  // ลองส่งคิวทุก 15 วิ และเมื่อเน็ตกลับมา
+  setInterval(flushQueue, 15000);
+  window.addEventListener("online", flushQueue);
+
+  // ===== FLOW =====
   function onScanned(text) {
     try {
       var url = new URL(text);
       var sid = url.searchParams.get("student_id") || "";
       var nick= url.searchParams.get("nickname")   || "";
       if (!sid && !nick) { cooldown=false; return; }
+
+      // กันสแกนซ้ำในวันเดียว
+      if (sid && alreadyDoneToday(sid)) {
+        showDupToast();
+        setTimeout(function(){ cooldown=false; }, 2500);
+        return;
+      }
 
       scanning = false;
       if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
@@ -522,13 +671,17 @@
       document.querySelectorAll(".opt").forEach(function(o){ o.classList.remove("selected"); });
 
       showScreen("screenQ1");
+      setTimeout(function(){ speak("วันนี้รู้สึกอย่างไรบ้าง"); }, 500);  // อ่านคำถามอัตโนมัติ
     } catch(e){ cooldown=false; }
   }
 
   function answerQ1(el, value) {
     el.classList.add("selected");
     current.feeling = value;
-    setTimeout(function(){ showScreen("screenQ2"); }, 300);
+    setTimeout(function(){
+      showScreen("screenQ2");
+      setTimeout(function(){ speak("วันนี้ยากแค่ไหน"); }, 400);  // อ่านคำถามข้อ 2
+    }, 300);
   }
 
   function answerQ2(el, value) {
@@ -537,18 +690,35 @@
     setTimeout(saveAndFinish, 300);
   }
 
+  // ปุ่มย้อนกลับจากข้อ 2 ไปข้อ 1
+  function goBackToQ1() {
+    document.querySelectorAll("#screenQ2 .opt").forEach(function(o){ o.classList.remove("selected"); });
+    showScreen("screenQ1");
+    setTimeout(function(){ speak("วันนี้รู้สึกอย่างไรบ้าง"); }, 300);
+  }
+
   function saveAndFinish() {
     showScreen("screenDone");
     document.getElementById("savingState").style.display = "block";
     document.getElementById("doneState").style.display   = "none";
+
+    var payload = current;
+    if (current.student_id) markDoneToday(current.student_id);
+
     fetch(SCRIPT_URL, {
       method:"POST",
       headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify(current)
+      body: JSON.stringify(payload)
     })
     .then(function(res){ return res.json(); })
-    .then(function(){ finishDone(); })
-    .catch(function(){ finishDone(); });
+    .then(function(d){
+      if (d && d.status === "success") finishDone();
+      else { enqueue(payload); finishDone(); }   // server ตอบ error -> เก็บคิว
+    })
+    .catch(function(){
+      enqueue(payload);   // เน็ตหลุด -> เก็บไว้ส่งทีหลัง ไม่ให้ข้อมูลหาย
+      finishDone();
+    });
   }
 
   function finishDone() {
@@ -556,6 +726,7 @@
     document.getElementById("doneState").style.display   = "block";
     document.getElementById("doneName").textContent = "เก่งมากเลย " + (current.nickname||"") + " 🎉";
     soundDone();
+    updateQueueUI();
     setTimeout(function(){ cooldown=false; restartScanner(); }, 2200);
   }
 
@@ -577,7 +748,7 @@
   document.addEventListener("touchstart", unlockAudio);
   document.addEventListener("click", unlockAudio);
 
-  window.addEventListener("load", startCamera);
+  window.addEventListener("load", function(){ startCamera(); updateQueueUI(); flushQueue(); });
 </script>
 </body>
 </html>
