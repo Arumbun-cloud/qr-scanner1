@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>แบบสอบถาม</title>
+<title>QR Check-in</title>
 <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -671,7 +671,8 @@
       document.querySelectorAll(".opt").forEach(function(o){ o.classList.remove("selected"); });
 
       showScreen("screenQ1");
-      setTimeout(function(){ speak("วันนี้รู้สึกอย่างไรบ้าง"); }, 500);  // อ่านคำถามอัตโนมัติ
+      var greet = nick ? ("สวัสดี " + nick + " ") : "สวัสดี ";
+      setTimeout(function(){ speak(greet + "วันนี้รู้สึกอย่างไรบ้าง"); }, 500);  // ทักชื่อ + อ่านคำถาม
     } catch(e){ cooldown=false; }
   }
 
