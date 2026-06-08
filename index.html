@@ -4,19 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QR Check-in</title>
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
   :root {
-    --bg:#0a0e1a;
-    --ink:#f8fafc;
-    --gold:#d4af37;
-    --gold-soft:#e8d39a;
+    --bg:#fdf6e9;
+    --card:#ffffff;
+    --ink:#3a2e1f;
+    --gold:#e0a93b;
+    --gold-deep:#c8861a;
   }
 
   body {
-    font-family:'Prompt',sans-serif;
+    font-family:'Mali',sans-serif;
     background:var(--bg);
     color:var(--ink);
     overflow:hidden;
@@ -24,246 +25,163 @@
     position:relative;
   }
 
-  /* ===== SCREENS ===== */
-  .screen {
-    position:fixed; inset:0;
-    display:none;
-    flex-direction:column;
-    z-index:1;
-  }
-  .screen.active { display:flex; animation:fadeScale 0.5s cubic-bezier(0.22,1,0.36,1); }
+  .screen { position:fixed; inset:0; display:none; flex-direction:column; z-index:1; }
+  .screen.active { display:flex; animation:fadeIn 0.45s cubic-bezier(0.22,1,0.36,1); }
+  @keyframes fadeIn { from{opacity:0; transform:scale(1.03);} to{opacity:1; transform:scale(1);} }
 
-  @keyframes fadeScale {
-    from { opacity:0; transform:scale(1.04); }
-    to   { opacity:1; transform:scale(1); }
-  }
+  /* ===== SCANNER (dark) ===== */
+  #screenScan { background:#0a0e1a; }
+  #video { position:fixed; top:0; left:0; width:100vw; height:100vh; object-fit:cover; z-index:0; }
 
-  /* ===== SCAN SCREEN ===== */
-  #video {
-    position:fixed; top:0; left:0;
-    width:100vw; height:100vh;
-    object-fit:cover; z-index:0;
-  }
-
-  .scan-ui { position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:0; }
+  .scan-ui { position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
 
   .scan-top {
     width:100%;
-    padding:calc(env(safe-area-inset-top,0) + 20px) 24px 16px;
-    background:linear-gradient(180deg,rgba(10,14,26,0.85),transparent);
+    padding:calc(env(safe-area-inset-top,0) + 22px) 24px 16px;
+    background:linear-gradient(180deg,rgba(10,14,26,0.8),transparent);
     display:flex; align-items:center; justify-content:space-between;
   }
-
-  .brand { display:flex; align-items:center; gap:10px; }
+  .brand { display:flex; align-items:center; gap:12px; }
   .brand-logo {
-    width:38px; height:38px; border-radius:11px;
-    background:linear-gradient(135deg,var(--gold),#b8941f);
-    display:flex; align-items:center; justify-content:center;
-    font-size:18px;
-    box-shadow:0 4px 14px rgba(212,175,55,0.4);
+    width:46px; height:46px; border-radius:14px;
+    background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+    box-shadow:0 4px 16px rgba(224,169,59,0.5);
   }
-  .brand-text { font-size:17px; font-weight:600; letter-spacing:0.3px; }
-  .brand-text span { color:var(--gold); }
-
+  .brand-text { font-size:22px; font-weight:700; color:#fff; }
   .btn-flip {
-    width:46px; height:46px; border-radius:50%;
-    background:rgba(255,255,255,0.12);
-    border:1px solid rgba(255,255,255,0.25);
+    width:54px; height:54px; border-radius:50%;
+    background:rgba(255,255,255,0.15);
+    border:2px solid rgba(255,255,255,0.3);
     backdrop-filter:blur(10px);
     display:flex; align-items:center; justify-content:center;
-    font-size:19px; cursor:pointer; color:#fff;
+    font-size:24px; cursor:pointer; color:#fff;
   }
-  .btn-flip:active { transform:scale(0.92); }
+  .btn-flip:active { transform:scale(0.9); }
 
-  .scan-center { display:flex; flex-direction:column; align-items:center; gap:22px; }
-
-  .qr-frame { width:min(70vw,270px); height:min(70vw,270px); position:relative; }
-  .qr-corner { position:absolute; width:38px; height:38px; border:3px solid var(--gold); }
-  .qr-corner.tl { top:0; left:0; border-right:none; border-bottom:none; border-radius:8px 0 0 0; }
-  .qr-corner.tr { top:0; right:0; border-left:none; border-bottom:none; border-radius:0 8px 0 0; }
-  .qr-corner.bl { bottom:0; left:0; border-right:none; border-top:none; border-radius:0 0 0 8px; }
-  .qr-corner.br { bottom:0; right:0; border-left:none; border-top:none; border-radius:0 0 8px 0; }
-
+  .scan-center { display:flex; flex-direction:column; align-items:center; gap:28px; }
+  .qr-frame { width:min(78vw,300px); height:min(78vw,300px); position:relative; }
+  .qr-corner { position:absolute; width:46px; height:46px; border:5px solid var(--gold); }
+  .qr-corner.tl { top:0; left:0; border-right:none; border-bottom:none; border-radius:12px 0 0 0; }
+  .qr-corner.tr { top:0; right:0; border-left:none; border-bottom:none; border-radius:0 12px 0 0; }
+  .qr-corner.bl { bottom:0; left:0; border-right:none; border-top:none; border-radius:0 0 0 12px; }
+  .qr-corner.br { bottom:0; right:0; border-left:none; border-top:none; border-radius:0 0 12px 0; }
   .scan-beam {
-    position:absolute; left:6%; width:88%; height:2px;
+    position:absolute; left:5%; width:90%; height:3px;
     background:linear-gradient(90deg,transparent,var(--gold),transparent);
-    box-shadow:0 0 12px var(--gold);
-    animation:beam 2.4s ease-in-out infinite;
+    box-shadow:0 0 14px var(--gold);
+    animation:beam 2.2s ease-in-out infinite;
   }
-  @keyframes beam { 0%{top:6%;} 50%{top:92%;} 100%{top:6%;} }
-
+  @keyframes beam { 0%{top:5%;} 50%{top:93%;} 100%{top:5%;} }
   .scan-hint {
-    font-size:15px; font-weight:300;
-    color:rgba(255,255,255,0.85);
-    text-shadow:0 1px 8px rgba(0,0,0,0.9);
-    letter-spacing:0.5px;
+    font-size:22px; font-weight:600; color:#fff;
+    text-shadow:0 2px 10px rgba(0,0,0,0.9); text-align:center;
   }
-
   .scan-bottom {
     width:100%;
-    padding:28px 24px calc(env(safe-area-inset-bottom,0) + 32px);
-    background:linear-gradient(0deg,rgba(10,14,26,0.85),transparent);
+    padding:24px 24px calc(env(safe-area-inset-bottom,0) + 30px);
+    background:linear-gradient(0deg,rgba(10,14,26,0.8),transparent);
     text-align:center;
   }
-  .scan-status {
-    font-size:13px; font-weight:300;
-    color:rgba(255,255,255,0.6);
-    letter-spacing:1px;
-  }
-  .scan-status .dot {
-    display:inline-block; width:7px; height:7px;
-    background:var(--gold); border-radius:50%;
-    margin-right:7px; vertical-align:middle;
-    animation:pulse 1.4s infinite;
-  }
+  .scan-status { font-size:17px; font-weight:500; color:rgba(255,255,255,0.85); }
+  .scan-status .dot { display:inline-block; width:9px; height:9px; background:var(--gold); border-radius:50%; margin-right:8px; vertical-align:middle; animation:pulse 1.4s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
-  /* ===== QUESTION SCREENS ===== */
+  /* ===== QUESTION SCREENS (bright, kid-friendly) ===== */
   .q-screen {
-    background:
-      radial-gradient(ellipse at top,rgba(212,175,55,0.08),transparent 60%),
-      var(--bg);
-    padding:calc(env(safe-area-inset-top,0) + 40px) 26px calc(env(safe-area-inset-bottom,0) + 32px);
+    background:linear-gradient(165deg,#fff7e8,#fde9c8);
+    padding:calc(env(safe-area-inset-top,0) + 28px) 22px calc(env(safe-area-inset-bottom,0) + 24px);
     overflow-y:auto;
+    align-items:center;
   }
 
-  .q-progress {
-    display:flex; gap:8px; justify-content:center;
-    margin-bottom:36px;
-  }
-  .q-dot { width:34px; height:4px; border-radius:2px; background:rgba(255,255,255,0.15); transition:0.4s; }
-  .q-dot.active { background:var(--gold); width:48px; }
-  .q-dot.done { background:var(--gold-soft); }
+  .q-progress { display:flex; gap:10px; justify-content:center; margin-bottom:24px; }
+  .q-dot { width:44px; height:8px; border-radius:4px; background:rgba(200,134,26,0.2); transition:0.4s; }
+  .q-dot.active { background:var(--gold); width:60px; }
+  .q-dot.done { background:var(--gold-deep); }
 
-  .q-student {
-    text-align:center;
-    margin-bottom:8px;
-    font-size:13px; font-weight:300;
-    color:rgba(255,255,255,0.5);
-    letter-spacing:1px;
+  .q-greeting {
+    text-align:center; font-size:24px; font-weight:600;
+    color:var(--gold-deep); margin-bottom:6px;
   }
-  .q-student b { color:var(--gold-soft); font-weight:500; }
-
-  .q-number {
-    text-align:center;
-    font-size:13px; font-weight:500;
-    color:var(--gold);
-    letter-spacing:3px; text-transform:uppercase;
-    margin-bottom:14px;
-  }
+  .q-greeting .name { font-weight:700; }
 
   .q-title {
-    text-align:center;
-    font-size:26px; font-weight:600;
-    line-height:1.4;
-    margin-bottom:6px;
-    letter-spacing:0.3px;
+    text-align:center; font-size:32px; font-weight:700;
+    line-height:1.35; margin:14px 0 4px; color:var(--ink);
+    max-width:480px;
   }
-  .q-sub {
-    text-align:center;
-    font-size:14px; font-weight:300;
-    color:rgba(255,255,255,0.45);
-    margin-bottom:40px;
-    letter-spacing:1px;
-  }
+  .q-sub { text-align:center; font-size:16px; font-weight:400; color:#b08537; margin-bottom:30px; }
 
-  .q-options {
-    display:flex; flex-direction:column; gap:14px;
-    max-width:440px; width:100%;
-    margin:0 auto;
-  }
+  .q-options { display:flex; flex-direction:column; gap:16px; max-width:460px; width:100%; }
 
   .opt {
-    display:flex; align-items:center; gap:18px;
-    padding:18px 22px;
-    background:rgba(255,255,255,0.04);
-    border:1px solid rgba(255,255,255,0.09);
-    border-radius:18px;
+    display:flex; align-items:center; gap:22px;
+    padding:22px 26px;
+    background:var(--card);
+    border:3px solid transparent;
+    border-radius:26px;
     cursor:pointer;
-    transition:0.25s cubic-bezier(0.22,1,0.36,1);
-    position:relative;
-    overflow:hidden;
+    transition:0.2s cubic-bezier(0.22,1,0.36,1);
+    box-shadow:0 6px 18px rgba(180,130,40,0.12);
+    min-height:92px;
   }
-  .opt::before {
-    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
-    background:var(--gold); transform:scaleY(0); transition:0.25s;
-  }
-  .opt:active {
-    transform:scale(0.98);
-    background:rgba(212,175,55,0.12);
-    border-color:var(--gold);
-  }
-  .opt:active::before { transform:scaleY(1); }
+  .opt:active { transform:scale(0.96); }
+  .opt.selected { border-color:var(--gold); background:#fffaf0; box-shadow:0 8px 26px rgba(224,169,59,0.35); transform:scale(1.02); }
 
-  .opt-emoji {
-    font-size:32px;
-    width:48px; text-align:center;
-    flex-shrink:0;
-  }
-  .opt-label {
-    font-size:18px; font-weight:400;
-    letter-spacing:0.3px;
-  }
+  .opt-emoji { font-size:48px; width:62px; text-align:center; flex-shrink:0; }
+  .opt-label { font-size:26px; font-weight:600; color:var(--ink); }
 
-  .opt.selected {
-    background:rgba(212,175,55,0.15);
-    border-color:var(--gold);
-    box-shadow:0 6px 24px rgba(212,175,55,0.2);
-  }
-  .opt.selected::before { transform:scaleY(1); }
+  /* difficulty color hints */
+  .opt.c-blue   { border-left:10px solid #4a90d9; }
+  .opt.c-green  { border-left:10px solid #5cb85c; }
+  .opt.c-yellow { border-left:10px solid #f0c419; }
+  .opt.c-orange { border-left:10px solid #f0932b; }
+  .opt.c-red    { border-left:10px solid #e74c3c; }
 
-  /* ===== SAVING / DONE SCREEN ===== */
+  /* ===== DONE ===== */
   .done-screen {
-    background:
-      radial-gradient(ellipse at center,rgba(212,175,55,0.12),transparent 55%),
-      var(--bg);
-    align-items:center; justify-content:center;
-    text-align:center;
+    background:linear-gradient(165deg,#fff7e8,#fde9c8);
+    align-items:center; justify-content:center; text-align:center;
   }
-
   .done-circle {
-    width:120px; height:120px; border-radius:50%;
-    background:linear-gradient(135deg,var(--gold),#b8941f);
-    display:flex; align-items:center; justify-content:center;
-    font-size:60px;
-    margin-bottom:32px;
-    box-shadow:0 12px 48px rgba(212,175,55,0.45);
+    width:150px; height:150px; border-radius:50%;
+    background:linear-gradient(135deg,var(--gold),var(--gold-deep));
+    display:flex; align-items:center; justify-content:center; font-size:80px; color:#fff;
+    margin-bottom:30px;
+    box-shadow:0 14px 50px rgba(224,169,59,0.5);
     animation:popIn 0.6s cubic-bezier(0.34,1.56,0.64,1);
   }
-  @keyframes popIn { from{transform:scale(0);opacity:0;} to{transform:scale(1);opacity:1;} }
-
-  .done-title { font-size:28px; font-weight:600; margin-bottom:10px; letter-spacing:0.5px; }
-  .done-sub { font-size:15px; font-weight:300; color:rgba(255,255,255,0.55); letter-spacing:0.5px; }
-
+  @keyframes popIn { from{transform:scale(0);} to{transform:scale(1);} }
+  .done-title { font-size:34px; font-weight:700; margin-bottom:10px; }
+  .done-sub { font-size:20px; font-weight:500; color:#b08537; }
   .spinner {
-    width:56px; height:56px;
-    border:3px solid rgba(212,175,55,0.2);
+    width:64px; height:64px;
+    border:5px solid rgba(224,169,59,0.25);
     border-top-color:var(--gold);
-    border-radius:50%;
-    animation:spin 0.8s linear infinite;
-    margin-bottom:28px;
+    border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 28px;
   }
   @keyframes spin { to{transform:rotate(360deg);} }
 
   /* permission */
-  .perm-screen { background:var(--bg); align-items:center; justify-content:center; padding:40px 30px; text-align:center; z-index:20; }
-  .perm-icon{font-size:60px;margin-bottom:20px;} .perm-title{font-size:22px;font-weight:600;margin-bottom:12px;}
-  .perm-desc{font-size:15px;font-weight:300;color:rgba(255,255,255,0.5);line-height:1.8;margin-bottom:32px;}
-  .btn-retry{background:linear-gradient(135deg,var(--gold),#b8941f);color:#0a0e1a;border:none;border-radius:16px;padding:16px 40px;font-size:16px;font-weight:600;font-family:'Prompt';cursor:pointer;}
+  .perm-screen { background:#0a0e1a; align-items:center; justify-content:center; padding:40px 30px; text-align:center; z-index:20; }
+  .perm-icon{font-size:70px;margin-bottom:20px;} .perm-title{font-size:26px;font-weight:700;color:#fff;margin-bottom:12px;}
+  .perm-desc{font-size:18px;font-weight:400;color:rgba(255,255,255,0.6);line-height:1.8;margin-bottom:32px;}
+  .btn-retry{background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#fff;border:none;border-radius:20px;padding:18px 48px;font-size:20px;font-weight:700;font-family:'Mali';cursor:pointer;}
 
   canvas{display:none;}
 </style>
 </head>
 <body>
 
-<!-- ===== SCREEN 1: SCANNER ===== -->
+<!-- SCAN -->
 <div class="screen active" id="screenScan">
   <video id="video" playsinline autoplay muted></video>
   <div class="scan-ui">
     <div class="scan-top">
       <div class="brand">
         <div class="brand-logo">📷</div>
-        <div class="brand-text">QR <span>Check-in</span></div>
+        <div class="brand-text">สแกนเช็คชื่อ</div>
       </div>
       <div class="btn-flip" onclick="flipCamera()">🔄</div>
     </div>
@@ -273,68 +191,60 @@
         <div class="qr-corner bl"></div><div class="qr-corner br"></div>
         <div class="scan-beam"></div>
       </div>
-      <div class="scan-hint">จ่อ QR Code ให้อยู่ในกรอบ</div>
+      <div class="scan-hint">เอา QR มาไว้ในกรอบ</div>
     </div>
     <div class="scan-bottom">
-      <div class="scan-status"><span class="dot"></span>กำลังสแกน</div>
+      <div class="scan-status"><span class="dot"></span>กำลังสแกน...</div>
     </div>
   </div>
 </div>
 
-<!-- ===== SCREEN 2: QUESTION 1 (FEELING) ===== -->
+<!-- Q1 FEELING -->
 <div class="screen q-screen" id="screenQ1">
-  <div class="q-progress">
-    <div class="q-dot active" id="d1"></div>
-    <div class="q-dot" id="d2"></div>
-  </div>
-  <div class="q-student">สวัสดี <b id="q1name">—</b></div>
-  <div class="q-number">คำถามที่ 1 / 2</div>
+  <div class="q-progress"><div class="q-dot active"></div><div class="q-dot"></div></div>
+  <div class="q-greeting">สวัสดี <span class="name" id="q1name">น้อง</span> 👋</div>
   <div class="q-title">วันนี้รู้สึกอย่างไรบ้าง?</div>
-  <div class="q-sub">Feeling</div>
-  <div class="q-options" id="q1options">
+  <div class="q-sub">เลือกได้เลยนะ</div>
+  <div class="q-options">
     <div class="opt" onclick="answerQ1(this,'😆 สนุก')"><div class="opt-emoji">😆</div><div class="opt-label">สนุก</div></div>
     <div class="opt" onclick="answerQ1(this,'🙂 ดีปกติ')"><div class="opt-emoji">🙂</div><div class="opt-label">ดีปกติ</div></div>
     <div class="opt" onclick="answerQ1(this,'😢 เหนื่อยหน่อย')"><div class="opt-emoji">😢</div><div class="opt-label">เหนื่อยหน่อย</div></div>
   </div>
 </div>
 
-<!-- ===== SCREEN 3: QUESTION 2 (DIFFICULTY) ===== -->
+<!-- Q2 DIFFICULTY -->
 <div class="screen q-screen" id="screenQ2">
-  <div class="q-progress">
-    <div class="q-dot done" id="d1b"></div>
-    <div class="q-dot active" id="d2b"></div>
-  </div>
-  <div class="q-student">สวัสดี <b id="q2name">—</b></div>
-  <div class="q-number">คำถามที่ 2 / 2</div>
-  <div class="q-title">วันนี้ความยากเป็นอย่างไรบ้าง?</div>
-  <div class="q-sub">Difficulty</div>
-  <div class="q-options" id="q2options">
-    <div class="opt" onclick="answerQ2(this,'🔵 ง่ายมาก')"><div class="opt-emoji">🔵</div><div class="opt-label">ง่ายมาก</div></div>
-    <div class="opt" onclick="answerQ2(this,'🟢 ค่อนข้างง่าย')"><div class="opt-emoji">🟢</div><div class="opt-label">ค่อนข้างง่าย</div></div>
-    <div class="opt" onclick="answerQ2(this,'🟡 พอดี')"><div class="opt-emoji">🟡</div><div class="opt-label">พอดี</div></div>
-    <div class="opt" onclick="answerQ2(this,'🟠 ค่อนข้างยาก')"><div class="opt-emoji">🟠</div><div class="opt-label">ค่อนข้างยาก</div></div>
-    <div class="opt" onclick="answerQ2(this,'🔴 ยากมาก')"><div class="opt-emoji">🔴</div><div class="opt-label">ยากมาก</div></div>
+  <div class="q-progress"><div class="q-dot done"></div><div class="q-dot active"></div></div>
+  <div class="q-greeting">เก่งมาก <span class="name" id="q2name">น้อง</span> 🌟</div>
+  <div class="q-title">วันนี้ยากแค่ไหน?</div>
+  <div class="q-sub">เลือกได้เลยนะ</div>
+  <div class="q-options">
+    <div class="opt c-blue"   onclick="answerQ2(this,'🔵 ง่ายมาก')"><div class="opt-emoji">🔵</div><div class="opt-label">ง่ายมาก</div></div>
+    <div class="opt c-green"  onclick="answerQ2(this,'🟢 ค่อนข้างง่าย')"><div class="opt-emoji">🟢</div><div class="opt-label">ค่อนข้างง่าย</div></div>
+    <div class="opt c-yellow" onclick="answerQ2(this,'🟡 พอดี')"><div class="opt-emoji">🟡</div><div class="opt-label">พอดี</div></div>
+    <div class="opt c-orange" onclick="answerQ2(this,'🟠 ค่อนข้างยาก')"><div class="opt-emoji">🟠</div><div class="opt-label">ค่อนข้างยาก</div></div>
+    <div class="opt c-red"    onclick="answerQ2(this,'🔴 ยากมาก')"><div class="opt-emoji">🔴</div><div class="opt-label">ยากมาก</div></div>
   </div>
 </div>
 
-<!-- ===== SCREEN 4: SAVING / DONE ===== -->
+<!-- DONE -->
 <div class="screen done-screen" id="screenDone">
   <div id="savingState">
     <div class="spinner"></div>
     <div class="done-title">กำลังบันทึก...</div>
-    <div class="done-sub">โปรดรอสักครู่</div>
+    <div class="done-sub">รอแป๊บนะ</div>
   </div>
   <div id="doneState" style="display:none;">
     <div class="done-circle">✓</div>
-    <div class="done-title">บันทึกเรียบร้อย!</div>
-    <div class="done-sub" id="doneName">ขอบคุณค่ะ</div>
+    <div class="done-title">เสร็จแล้ว!</div>
+    <div class="done-sub" id="doneName">เก่งมากเลย 🎉</div>
   </div>
 </div>
 
-<!-- permission -->
+<!-- PERM -->
 <div class="screen perm-screen" id="screenPerm">
   <div class="perm-icon">🔒</div>
-  <div class="perm-title">ไม่สามารถเข้ากล้องได้</div>
+  <div class="perm-title">เปิดกล้องไม่ได้</div>
   <div class="perm-desc">กรุณาอนุญาตการใช้กล้อง<br>แล้วกดลองใหม่<br><br>⚠️ ต้องเปิดผ่าน Chrome หรือ Safari</div>
   <button class="btn-retry" onclick="restartScanner()">ลองใหม่</button>
 </div>
@@ -342,7 +252,6 @@
 <canvas id="canvas"></canvas>
 
 <script>
-  // โหลด jsQR แบบ fallback หลาย CDN
   var JSQR_CDNS = [
     "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",
     "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js",
@@ -366,20 +275,20 @@
   var stream     = null;
   var scanning   = false;
   var cooldown   = false;
+  var current    = { student_id:"", nickname:"", feeling:"", difficulty:"" };
 
-  // เก็บคำตอบของรอบปัจจุบัน
-  var current = { student_id:"", nickname:"", feeling:"", difficulty:"" };
+  // canvas ใช้ willReadFrequently เพื่อความเร็ว
+  var canvas = document.getElementById("canvas");
+  var ctx    = canvas.getContext("2d", { willReadFrequently:true });
 
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
     document.getElementById(id).classList.add("active");
   }
 
-  // ---------- CAMERA ----------
   function startCamera() {
     scanning = false;
     if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
-
     navigator.mediaDevices.getUserMedia({
       video:{ facingMode:{ideal:facingMode}, width:{ideal:1280}, height:{ideal:720} }
     })
@@ -391,49 +300,42 @@
       scanning = true;
       requestAnimationFrame(tick);
     })
-    .catch(function(){
-      showScreen("screenPerm");
-    });
+    .catch(function(){ showScreen("screenPerm"); });
   }
 
-  function restartScanner() {
-    showScreen("screenScan");
-    startCamera();
-  }
-
-  function flipCamera() {
-    facingMode = facingMode === "environment" ? "user" : "environment";
-    startCamera();
-  }
+  function restartScanner(){ showScreen("screenScan"); startCamera(); }
+  function flipCamera(){ facingMode = facingMode==="environment"?"user":"environment"; startCamera(); }
 
   function tick() {
     if (!scanning) return;
     try {
-      var video  = document.getElementById("video");
-      var canvas = document.getElementById("canvas");
-      if (video.readyState >= 2 && video.videoWidth > 0) {
-        var vw=video.videoWidth, vh=video.videoHeight;
-        var scale=Math.min(480/vw,1);
-        var w=Math.round(vw*scale), h=Math.round(vh*scale);
-        canvas.width=w; canvas.height=h;
-        var ctx=canvas.getContext("2d");
-        ctx.drawImage(video,0,0,w,h);
-        if (typeof jsQR!=="undefined") {
-          try {
-            var img=ctx.getImageData(0,0,w,h);
-            var code=jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});
-            if (code && code.data && !cooldown) {
-              cooldown=true;
-              onScanned(code.data);
-            }
-          } catch(e){}
+      var video = document.getElementById("video");
+      if (video.readyState >= 2 && video.videoWidth > 0 && typeof jsQR !== "undefined") {
+        var vw = video.videoWidth, vh = video.videoHeight;
+
+        // *** crop เฉพาะกลางจอ (สี่เหลี่ยมจัตุรัส 75%) แล้วขยายเต็ม canvas ***
+        // ทำให้ QR มี pixel เยอะ อ่านง่ายขึ้นมาก
+        var side = Math.floor(Math.min(vw, vh) * 0.75);
+        var sx   = Math.floor((vw - side) / 2);
+        var sy   = Math.floor((vh - side) / 2);
+
+        var TARGET = 500; // ความละเอียดที่ decode
+        canvas.width  = TARGET;
+        canvas.height = TARGET;
+        ctx.drawImage(video, sx, sy, side, side, 0, 0, TARGET, TARGET);
+
+        var img  = ctx.getImageData(0, 0, TARGET, TARGET);
+        var code = jsQR(img.data, TARGET, TARGET, { inversionAttempts:"attemptBoth" });
+
+        if (code && code.data && !cooldown) {
+          cooldown = true;
+          onScanned(code.data);
         }
       }
     } catch(e){}
     requestAnimationFrame(tick);
   }
 
-  // ---------- FLOW ----------
   function onScanned(text) {
     try {
       var url = new URL(text);
@@ -441,40 +343,34 @@
       var nick= url.searchParams.get("nickname")   || "";
       if (!sid && !nick) { cooldown=false; return; }
 
-      // หยุดสแกน เริ่ม flow คำถาม
       scanning = false;
       if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
 
       current = { student_id:sid, nickname:nick, feeling:"", difficulty:"" };
-
-      // reset UI
       document.getElementById("q1name").textContent = nick || sid;
       document.getElementById("q2name").textContent = nick || sid;
       document.querySelectorAll(".opt").forEach(function(o){ o.classList.remove("selected"); });
 
       showScreen("screenQ1");
-    } catch(e) {
-      cooldown = false;
-    }
+    } catch(e){ cooldown=false; }
   }
 
   function answerQ1(el, value) {
     el.classList.add("selected");
     current.feeling = value;
-    setTimeout(function(){ showScreen("screenQ2"); }, 350);
+    setTimeout(function(){ showScreen("screenQ2"); }, 300);
   }
 
   function answerQ2(el, value) {
     el.classList.add("selected");
     current.difficulty = value;
-    setTimeout(function(){ saveAndFinish(); }, 350);
+    setTimeout(saveAndFinish, 300);
   }
 
   function saveAndFinish() {
     showScreen("screenDone");
     document.getElementById("savingState").style.display = "block";
     document.getElementById("doneState").style.display   = "none";
-
     fetch(SCRIPT_URL, {
       method:"POST",
       headers:{ "Content-Type":"text/plain;charset=utf-8" },
@@ -482,19 +378,14 @@
     })
     .then(function(res){ return res.json(); })
     .then(function(){ finishDone(); })
-    .catch(function(){ finishDone(); }); // ถึง error ก็วนกลับ ไม่ค้าง
+    .catch(function(){ finishDone(); });
   }
 
   function finishDone() {
     document.getElementById("savingState").style.display = "none";
     document.getElementById("doneState").style.display   = "block";
-    document.getElementById("doneName").textContent = "ขอบคุณ " + (current.nickname || "") + " 🎉";
-
-    // รอ 1.8 วิ แล้ววนกลับไปหน้าสแกน
-    setTimeout(function(){
-      cooldown = false;
-      restartScanner();
-    }, 1800);
+    document.getElementById("doneName").textContent = "เก่งมากเลย " + (current.nickname||"") + " 🎉";
+    setTimeout(function(){ cooldown=false; restartScanner(); }, 1800);
   }
 
   window.addEventListener("load", startCamera);
