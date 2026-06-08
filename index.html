@@ -281,6 +281,56 @@
   var canvas = document.getElementById("canvas");
   var ctx    = canvas.getContext("2d", { willReadFrequently:true });
 
+  // ===== SOUND (Web Audio API — ไม่ต้องโหลดไฟล์) =====
+  var audioCtx = null;
+  function getAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e) { audioCtx = null; }
+    }
+    return audioCtx;
+  }
+
+  // เล่นโน้ตเดียว
+  function playNote(freq, startTime, duration, type, volume) {
+    var ac = getAudio();
+    if (!ac) return;
+    var osc  = ac.createOscillator();
+    var gain = ac.createGain();
+    osc.type = type || "sine";
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    var v = volume || 0.18;
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(v, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
+
+  // เสียงตอนสแกนติด — "ติ๊ง" สดใส 2 โน้ตขึ้น (เหมือนเก็บเหรียญในเกม)
+  function soundScan() {
+    var ac = getAudio();
+    if (!ac) return;
+    if (ac.state === "suspended") ac.resume();
+    var t = ac.currentTime;
+    playNote(880, t,       0.12, "square", 0.15);  // A5
+    playNote(1319, t+0.09, 0.18, "square", 0.15);  // E6
+  }
+
+  // เสียงตอนบันทึกเสร็จ — เมโลดี้น่ารัก 4 โน้ตไล่ขึ้น (เหมือนผ่านด่าน)
+  function soundDone() {
+    var ac = getAudio();
+    if (!ac) return;
+    if (ac.state === "suspended") ac.resume();
+    var t = ac.currentTime;
+    playNote(523, t,       0.15, "triangle", 0.2);  // C5
+    playNote(659, t+0.13,  0.15, "triangle", 0.2);  // E5
+    playNote(784, t+0.26,  0.15, "triangle", 0.2);  // G5
+    playNote(1047, t+0.39, 0.35, "triangle", 0.22); // C6
+  }
+
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
     document.getElementById(id).classList.add("active");
@@ -290,7 +340,12 @@
     scanning = false;
     if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
     navigator.mediaDevices.getUserMedia({
-      video:{ facingMode:{ideal:facingMode}, width:{ideal:1280}, height:{ideal:720} }
+      video:{
+        facingMode:{ideal:facingMode},
+        width:{ideal:1920},
+        height:{ideal:1080},
+        advanced:[{focusMode:"continuous"}]   // โฟกัสต่อเนื่อง ช่วยภาพคมขึ้น
+      }
     })
     .then(function(s){
       stream = s;
@@ -306,29 +361,55 @@
   function restartScanner(){ showScreen("screenScan"); startCamera(); }
   function flipCamera(){ facingMode = facingMode==="environment"?"user":"environment"; startCamera(); }
 
+  var scanFrame = 0;
+
+  function decodeRegion(video, cropRatio, target, useThreshold) {
+    var vw = video.videoWidth, vh = video.videoHeight;
+    var side = Math.floor(Math.min(vw, vh) * cropRatio);
+    var sx   = Math.floor((vw - side) / 2);
+    var sy   = Math.floor((vh - side) / 2);
+
+    canvas.width  = target;
+    canvas.height = target;
+    ctx.imageSmoothingEnabled = false;           // คมชัดขึ้นสำหรับกล้องเบลอ
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, target, target);
+
+    var img = ctx.getImageData(0, 0, target, target);
+
+    if (useThreshold) {
+      // ปรับ contrast แบบ adaptive — ช่วยกล้องหน้าความละเอียดต่ำ/แสงน้อยมาก
+      var d = img.data;
+      var sum = 0;
+      for (var k = 0; k < d.length; k += 4) sum += (d[k] + d[k+1] + d[k+2]) / 3;
+      var mean = sum / (d.length / 4);
+      for (var i = 0; i < d.length; i += 4) {
+        var avg = (d[i] + d[i+1] + d[i+2]) / 3;
+        var v = avg > mean ? 255 : 0;
+        d[i] = d[i+1] = d[i+2] = v;
+      }
+    }
+
+    return jsQR(img.data, target, target, { inversionAttempts:"attemptBoth" });
+  }
+
   function tick() {
     if (!scanning) return;
     try {
       var video = document.getElementById("video");
       if (video.readyState >= 2 && video.videoWidth > 0 && typeof jsQR !== "undefined") {
-        var vw = video.videoWidth, vh = video.videoHeight;
+        scanFrame++;
+        var code = null;
 
-        // *** crop เฉพาะกลางจอ (สี่เหลี่ยมจัตุรัส 75%) แล้วขยายเต็ม canvas ***
-        // ทำให้ QR มี pixel เยอะ อ่านง่ายขึ้นมาก
-        var side = Math.floor(Math.min(vw, vh) * 0.75);
-        var sx   = Math.floor((vw - side) / 2);
-        var sy   = Math.floor((vh - side) / 2);
-
-        var TARGET = 500; // ความละเอียดที่ decode
-        canvas.width  = TARGET;
-        canvas.height = TARGET;
-        ctx.drawImage(video, sx, sy, side, side, 0, 0, TARGET, TARGET);
-
-        var img  = ctx.getImageData(0, 0, TARGET, TARGET);
-        var code = jsQR(img.data, TARGET, TARGET, { inversionAttempts:"attemptBoth" });
+        // หมุนเวียนหลายวิธีในแต่ละเฟรม เพื่อเพิ่มโอกาสอ่านติดบนกล้องไม่ชัด
+        var mode = scanFrame % 4;
+        if (mode === 0)      code = decodeRegion(video, 0.75, 500, false);
+        else if (mode === 1) code = decodeRegion(video, 0.55, 420, false); // จ่อใกล้ QR ใหญ่
+        else if (mode === 2) code = decodeRegion(video, 0.95, 600, false); // จ่อไกล QR เล็ก
+        else                 code = decodeRegion(video, 0.75, 500, true);  // threshold สำหรับภาพเบลอ
 
         if (code && code.data && !cooldown) {
           cooldown = true;
+          soundScan();
           onScanned(code.data);
         }
       }
@@ -385,8 +466,27 @@
     document.getElementById("savingState").style.display = "none";
     document.getElementById("doneState").style.display   = "block";
     document.getElementById("doneName").textContent = "เก่งมากเลย " + (current.nickname||"") + " 🎉";
-    setTimeout(function(){ cooldown=false; restartScanner(); }, 1800);
+    soundDone();
+    setTimeout(function(){ cooldown=false; restartScanner(); }, 2200);
   }
+
+  // ปลดล็อกเสียงเมื่อแตะหน้าจอครั้งแรก (browser บังคับ)
+  function unlockAudio() {
+    var ac = getAudio();
+    if (ac && ac.state === "suspended") ac.resume();
+    // เล่นเสียงเงียบ 1 ครั้งเพื่อ activate
+    if (ac) {
+      var osc = ac.createOscillator();
+      var g = ac.createGain();
+      g.gain.value = 0;
+      osc.connect(g); g.connect(ac.destination);
+      osc.start(); osc.stop(ac.currentTime + 0.01);
+    }
+    document.removeEventListener("touchstart", unlockAudio);
+    document.removeEventListener("click", unlockAudio);
+  }
+  document.addEventListener("touchstart", unlockAudio);
+  document.addEventListener("click", unlockAudio);
 
   window.addEventListener("load", startCamera);
 </script>
