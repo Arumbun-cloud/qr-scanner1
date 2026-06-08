@@ -9,271 +9,355 @@
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
   body {
+    background: #000;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
     font-family: 'Segoe UI', sans-serif;
-    background: #0f172a;
-    color: #f1f5f9;
-    min-height: 100vh;
+  }
+
+  /* กล้องเต็มจอ */
+  #video {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: 1;
+  }
+
+  /* overlay ทับกล้อง */
+  .ui-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 20px 40px;
+    justify-content: space-between;
+    padding: 0;
   }
 
-  .title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 24px; }
-
-  .scanner-box {
+  /* แถบบน */
+  .top-bar {
     width: 100%;
-    max-width: 360px;
-    aspect-ratio: 1;
-    border-radius: 20px;
-    overflow: hidden;
-    position: relative;
-    background: #000;
-    margin-bottom: 20px;
-    border: 2px solid #1e293b;
-  }
-
-  #video {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  .overlay {
-    position: absolute;
-    inset: 0;
+    padding: 16px 20px 12px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
     display: flex;
     align-items: center;
-    justify-content: center;
-    pointer-events: none;
+    justify-content: space-between;
   }
 
-  .crosshair {
-    width: 200px; height: 200px;
+  .top-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.8);
+  }
+
+  /* ปุ่มสลับกล้อง */
+  .btn-flip {
+    background: rgba(255,255,255,0.2);
+    border: 1.5px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    color: #fff;
+    transition: background 0.15s;
+  }
+
+  .btn-flip:active { background: rgba(255,255,255,0.4); }
+
+  /* กรอบ QR ตรงกลาง */
+  .center-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .qr-frame {
+    width: min(72vw, 280px);
+    height: min(72vw, 280px);
     position: relative;
   }
 
-  .crosshair::before, .crosshair::after, .corner-br, .corner-bl {
+  /* มุมกรอบ */
+  .qr-frame::before, .qr-frame::after,
+  .qr-frame .c1, .qr-frame .c2 {
     content: '';
     position: absolute;
-    width: 36px; height: 36px;
-    border-color: #22c55e;
+    width: 44px; height: 44px;
+    border-color: #fff;
     border-style: solid;
   }
 
-  .crosshair::before { top:0; left:0;   border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
-  .crosshair::after  { top:0; right:0;  border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
-  .corner-br { bottom:0; right:0; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
-  .corner-bl { bottom:0; left:0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .qr-frame::before { top:0; left:0;   border-width:4px 0 0 4px; border-radius:6px 0 0 0; }
+  .qr-frame::after  { top:0; right:0;  border-width:4px 4px 0 0; border-radius:0 6px 0 0; }
+  .qr-frame .c1     { bottom:0; right:0; border-width:0 4px 4px 0; border-radius:0 0 6px 0; }
+  .qr-frame .c2     { bottom:0; left:0;  border-width:0 0 4px 4px; border-radius:0 0 0 6px; }
 
+  /* เส้น scan */
   .scan-line {
     position: absolute;
-    left: 10%; width: 80%; height: 2px;
-    background: linear-gradient(90deg, transparent, #22c55e, transparent);
-    animation: scanMove 2s linear infinite;
-    top: 0;
+    left: 5%; width: 90%; height: 3px;
+    background: linear-gradient(90deg, transparent, #22c55e 40%, #22c55e 60%, transparent);
+    border-radius: 2px;
+    animation: scanMove 1.8s ease-in-out infinite;
+    box-shadow: 0 0 8px #22c55e;
   }
 
-  @keyframes scanMove { 0% { top:10%; } 100% { top:90%; } }
+  @keyframes scanMove {
+    0%   { top: 8%; opacity: 0.6; }
+    50%  { opacity: 1; }
+    100% { top: 88%; opacity: 0.6; }
+  }
 
-  .scanner-status {
-    position: absolute;
-    bottom: 14px; left: 0; right: 0;
+  .scan-hint {
+    color: rgba(255,255,255,0.85);
+    font-size: 15px;
+    font-weight: 500;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.9);
     text-align: center;
-    font-size: 13px; font-weight: 600;
-    color: #fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    letter-spacing: 0.3px;
   }
 
-  .scanning-dot {
-    display: inline-block;
-    width: 8px; height: 8px;
-    background: #22c55e;
-    border-radius: 50%;
-    margin-right: 6px;
-    animation: blink 1s infinite;
-    vertical-align: middle;
+  /* แถบล่าง — ผลการสแกน */
+  .bottom-panel {
+    width: 100%;
+    padding: 0 0 env(safe-area-inset-bottom, 0);
   }
 
-  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }
-
-  .result-card {
+  /* Toast ผลสแกน */
+  .toast {
     display: none;
-    width: 100%; max-width: 360px;
-    border-radius: 16px; overflow: hidden;
-    margin-bottom: 16px;
-    animation: slideUp 0.25s ease;
+    margin: 0 16px 12px;
+    border-radius: 18px;
+    overflow: hidden;
+    animation: popUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   }
 
-  @keyframes slideUp {
-    from { opacity:0; transform:translateY(10px); }
-    to   { opacity:1; transform:translateY(0); }
+  @keyframes popUp {
+    from { opacity:0; transform:translateY(20px) scale(0.95); }
+    to   { opacity:1; transform:translateY(0) scale(1); }
   }
 
-  .result-card.show { display: block; }
+  .toast.show { display: block; }
 
-  .result-header {
+  .toast-header {
     padding: 12px 16px;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 700; color: #fff;
   }
 
-  .result-header.success { background: #14532d; }
-  .result-header.error   { background: #450a0a; }
+  .toast-header.success { background: #16a34a; }
+  .toast-header.error   { background: #dc2626; }
 
-  .result-body {
-    background: #1e293b;
-    padding: 14px 16px;
+  .toast-body {
+    background: rgba(15,23,42,0.95);
+    backdrop-filter: blur(12px);
+    padding: 12px 16px;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
-  .chip { background: #0f172a; border-radius: 12px; padding: 10px 14px; }
-  .chip-label { font-size:11px; color:#475569; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px; }
-  .chip-value { font-size:16px; font-weight:700; color:#f1f5f9; word-break:break-all; }
-
-  .save-pill {
-    display: none;
-    width: 100%; max-width: 360px;
-    padding: 11px 16px; border-radius: 12px;
-    font-size: 13px; font-weight: 500;
-    text-align: center; margin-bottom: 16px;
+  .toast-chip {
+    background: rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 10px 14px;
   }
 
-  .save-pill.show   { display: block; }
-  .save-pill.saving { background:#1e3a5f; color:#93c5fd; border:1px solid #1d4ed8; }
-  .save-pill.saved  { background:#052e16; color:#86efac; border:1px solid #16a34a; }
-  .save-pill.failed { background:#2d0a0a; color:#fca5a5; border:1px solid #b91c1c; }
-
-  .permission-box {
-    display: none;
-    width: 100%; max-width: 360px;
-    background: #1e293b; border-radius: 16px;
-    border: 1px solid #334155;
-    padding: 28px 20px; text-align: center;
-    margin-bottom: 20px;
+  .toast-chip-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
   }
 
-  .permission-box.show { display: block; }
-  .permission-icon  { font-size:44px; margin-bottom:12px; }
-  .permission-title { font-size:16px; font-weight:600; margin-bottom:8px; }
-  .permission-desc  { font-size:13px; color:#64748b; line-height:1.7; margin-bottom:18px; }
+  .toast-chip-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    word-break: break-all;
+  }
+
+  /* Save status */
+  .save-bar {
+    display: none;
+    margin: 0 16px 16px;
+    padding: 11px 16px;
+    border-radius: 12px;
+    font-size: 13px; font-weight: 600;
+    text-align: center;
+    color: #fff;
+    backdrop-filter: blur(8px);
+  }
+
+  .save-bar.show   { display: block; }
+  .save-bar.saving { background: rgba(37,99,235,0.75);  }
+  .save-bar.saved  { background: rgba(22,163,74,0.75);  }
+  .save-bar.failed { background: rgba(220,38,38,0.75);  }
+
+  /* Log ล่าสุด */
+  .log-bar {
+    margin: 0 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 120px;
+    overflow: hidden;
+  }
+
+  .log-row {
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: popUp 0.25s ease;
+  }
+
+  .log-row-left { display:flex; align-items:center; gap:10px; }
+  .log-dot { width:7px; height:7px; background:#22c55e; border-radius:50%; flex-shrink:0; }
+  .log-name { font-size:14px; font-weight:700; color:#fff; }
+  .log-id   { font-size:12px; color:rgba(255,255,255,0.5); }
+  .log-time { font-size:11px; color:rgba(255,255,255,0.4); }
+
+  canvas { display:none; }
+
+  /* Permission screen */
+  .perm-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0f172a;
+    z-index: 10;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .perm-screen.show { display: flex; }
+  .perm-icon  { font-size: 56px; margin-bottom: 16px; }
+  .perm-title { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 10px; }
+  .perm-desc  { font-size: 14px; color: #64748b; line-height: 1.8; margin-bottom: 28px; }
 
   .btn-retry {
-    background: #2563eb; color: white;
-    border: none; border-radius: 12px;
-    padding: 12px 28px;
-    font-size: 14px; font-weight: 600;
+    background: #2563eb; color: #fff;
+    border: none; border-radius: 14px;
+    padding: 16px 36px;
+    font-size: 16px; font-weight: 700;
     cursor: pointer;
   }
 
   .btn-retry:active { opacity: 0.8; }
-
-  .log-section { width:100%; max-width:360px; margin-top:8px; }
-
-  .log-title {
-    font-size: 11px; color: #475569;
-    text-transform: uppercase; letter-spacing: 0.8px;
-    margin-bottom: 10px; padding-left: 2px;
-  }
-
-  .log-item {
-    background: #1e293b; border-radius: 12px;
-    padding: 10px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 8px;
-    animation: slideUp 0.25s ease;
-  }
-
-  .log-name { font-size:14px; font-weight:600; color:#f1f5f9; }
-  .log-id   { font-size:12px; color:#64748b; }
-  .log-time { font-size:11px; color:#475569; }
-  .log-empty { font-size:13px; color:#334155; text-align:center; padding:20px 0; }
-
-  canvas { display: none; }
 </style>
 </head>
 <body>
 
-<div class="title">📷 QR Scanner</div>
-<div class="subtitle">เล็ง QR ให้อยู่ในกรอบ — สแกนอัตโนมัติ</div>
+<video id="video" playsinline autoplay muted></video>
+<canvas id="canvas"></canvas>
 
-<div class="scanner-box">
-  <video id="video" playsinline autoplay muted></video>
-  <div class="overlay">
-    <div class="crosshair">
-      <div class="corner-br"></div>
-      <div class="corner-bl"></div>
+<div class="ui-layer">
+  <!-- Top -->
+  <div class="top-bar">
+    <div class="top-title">📷 สแกน QR</div>
+    <div class="btn-flip" onclick="flipCamera()" title="สลับกล้อง">🔄</div>
+  </div>
+
+  <!-- Center frame -->
+  <div class="center-area">
+    <div class="qr-frame">
+      <div class="c1"></div>
+      <div class="c2"></div>
       <div class="scan-line"></div>
     </div>
+    <div class="scan-hint" id="scanHint">จ่อ QR Code ให้อยู่ในกรอบ</div>
   </div>
-  <div class="scanner-status">
-    <span class="scanning-dot"></span>กำลังสแกน...
+
+  <!-- Bottom -->
+  <div class="bottom-panel">
+    <div class="toast" id="toast">
+      <div class="toast-header success" id="toastHeader">
+        <span id="toastIcon">✅</span>
+        <span id="toastText">สแกนสำเร็จ</span>
+      </div>
+      <div class="toast-body" id="toastBody"></div>
+    </div>
+    <div class="save-bar" id="saveBar"></div>
+    <div class="log-bar" id="logBar"></div>
   </div>
 </div>
 
-<div class="permission-box" id="permBox">
-  <div class="permission-icon">🔒</div>
-  <div class="permission-title">ไม่สามารถเข้ากล้องได้</div>
-  <div class="permission-desc">
-    กรุณาเปิดหน้านี้ใน <strong>Chrome</strong> หรือ <strong>Safari</strong><br>
-    แล้วอนุญาตการใช้กล้องเมื่อ browser ถาม<br><br>
-    ⚠️ ห้ามเปิดผ่าน Line / Facebook
+<!-- Permission error -->
+<div class="perm-screen" id="permScreen">
+  <div class="perm-icon">🔒</div>
+  <div class="perm-title">ไม่สามารถเข้ากล้องได้</div>
+  <div class="perm-desc">
+    กรุณาอนุญาตการใช้กล้อง<br>
+    เมื่อ browser ถาม แล้วกดลองใหม่<br><br>
+    ⚠️ ต้องเปิดผ่าน <strong style="color:#f1f5f9">Chrome</strong> หรือ <strong style="color:#f1f5f9">Safari</strong> เท่านั้น
   </div>
   <button class="btn-retry" onclick="startCamera()">🔄 ลองใหม่</button>
 </div>
-
-<div class="result-card" id="resultCard">
-  <div class="result-header success" id="resultHeader">
-    <span id="resultIcon">✅</span>
-    <span id="resultText">สแกนสำเร็จ</span>
-  </div>
-  <div class="result-body" id="resultBody"></div>
-</div>
-
-<div class="save-pill" id="savePill"></div>
-
-<div class="log-section">
-  <div class="log-title">ประวัติการสแกน</div>
-  <div id="logList"><div class="log-empty">ยังไม่มีการสแกน</div></div>
-</div>
-
-<canvas id="canvas"></canvas>
 
 <script>
   // ======= ใส่ Apps Script URL ตรงนี้ =======
   var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGEwOD2y541aYTW2brTLxKr_C4gCE2XpQDl5p20N3IR6z5GnQ1hYy43ZxdIPf8eNtv/exec";
   // ==========================================
 
-  var scanLog    = [];
-  var lastResult = "";
+  var facingMode = "environment"; // กล้องหลัง
+  var stream     = null;
   var cooldown   = false;
+  var lastResult = "";
+  var scanLog    = [];
+  var animFrame  = null;
 
   startCamera();
 
   function startCamera() {
-    document.getElementById("permBox").className = "permission-box";
+    document.getElementById("permScreen").className = "perm-screen";
+
+    if (stream) {
+      stream.getTracks().forEach(function(t) { t.stop(); });
+      stream = null;
+    }
 
     navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: { ideal: "environment" },
-        width:  { ideal: 1280 },
-        height: { ideal: 720 }
+        facingMode: { ideal: facingMode },
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
       }
     })
-    .then(function(stream) {
+    .then(function(s) {
+      stream = s;
       var video = document.getElementById("video");
-      video.srcObject = stream;
+      video.srcObject = s;
       video.play();
       video.addEventListener("loadedmetadata", function() {
-        requestAnimationFrame(tick);
-      });
+        if (animFrame) cancelAnimationFrame(animFrame);
+        tick();
+      }, { once: true });
     })
-    .catch(function(err) {
-      document.getElementById("permBox").className = "permission-box show";
+    .catch(function() {
+      document.getElementById("permScreen").className = "perm-screen show";
     });
+  }
+
+  function flipCamera() {
+    facingMode = facingMode === "environment" ? "user" : "environment";
+    startCamera();
   }
 
   function tick() {
@@ -281,15 +365,28 @@
     var canvas = document.getElementById("canvas");
 
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      var ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var w = video.videoWidth;
+      var h = video.videoHeight;
+      canvas.width  = w;
+      canvas.height = h;
 
-      var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      var code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: "dontInvert"
-      });
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, w, h);
+
+      // crop กลางภาพ 60% เพื่อ decode เร็วขึ้น
+      var cx = Math.floor(w * 0.2);
+      var cy = Math.floor(h * 0.2);
+      var cw = Math.floor(w * 0.6);
+      var ch = Math.floor(h * 0.6);
+      var imageData = ctx.getImageData(cx, cy, cw, ch);
+
+      var code = jsQR(imageData.data, cw, ch, { inversionAttempts: "attemptBoth" });
+
+      // ถ้า crop แล้วไม่เจอ ลอง full frame
+      if (!code) {
+        var full = ctx.getImageData(0, 0, w, h);
+        code = jsQR(full.data, w, h, { inversionAttempts: "attemptBoth" });
+      }
 
       if (code && code.data && code.data !== lastResult && !cooldown) {
         lastResult = code.data;
@@ -302,7 +399,7 @@
       }
     }
 
-    requestAnimationFrame(tick);
+    animFrame = requestAnimationFrame(tick);
   }
 
   function processQR(text) {
@@ -312,7 +409,7 @@
       var nickname  = url.searchParams.get("nickname")   || "";
 
       if (!studentId && !nickname) {
-        showError("ไม่พบ student_id หรือ nickname ใน QR");
+        showError("ไม่พบข้อมูลใน QR นี้");
         return;
       }
 
@@ -320,32 +417,36 @@
       saveToSheet(studentId, nickname);
       addLog(studentId, nickname);
     } catch(e) {
-      showError("QR Code รูปแบบไม่ถูกต้อง");
+      showError("QR รูปแบบไม่ถูกต้อง");
     }
   }
 
   function showSuccess(id, name) {
-    document.getElementById("resultIcon").textContent = "✅";
-    document.getElementById("resultText").textContent = "สแกนสำเร็จ";
-    document.getElementById("resultHeader").className = "result-header success";
-    document.getElementById("resultBody").innerHTML =
-      '<div class="chip"><div class="chip-label">Student ID</div><div class="chip-value">' + id   + '</div></div>' +
-      '<div class="chip"><div class="chip-label">Nickname</div><div class="chip-value">'   + name + '</div></div>';
-    document.getElementById("resultCard").className = "result-card show";
+    document.getElementById("toastIcon").textContent = "✅";
+    document.getElementById("toastText").textContent = "สแกนสำเร็จ!";
+    document.getElementById("toastHeader").className = "toast-header success";
+    document.getElementById("toastBody").innerHTML =
+      '<div class="toast-chip"><div class="toast-chip-label">Student ID</div><div class="toast-chip-value">' + id   + '</div></div>' +
+      '<div class="toast-chip"><div class="toast-chip-label">Nickname</div><div class="toast-chip-value">'   + name + '</div></div>';
+    document.getElementById("toast").className = "toast show";
+    document.getElementById("scanHint").textContent = "✅ สแกนสำเร็จ — รอ 4 วิสแกนใหม่";
+    setTimeout(function() {
+      document.getElementById("scanHint").textContent = "จ่อ QR Code ให้อยู่ในกรอบ";
+    }, 4000);
   }
 
   function showError(msg) {
-    document.getElementById("resultIcon").textContent = "❌";
-    document.getElementById("resultText").textContent = msg;
-    document.getElementById("resultHeader").className = "result-header error";
-    document.getElementById("resultBody").innerHTML   = "";
-    document.getElementById("resultCard").className   = "result-card show";
+    document.getElementById("toastIcon").textContent = "❌";
+    document.getElementById("toastText").textContent = msg;
+    document.getElementById("toastHeader").className = "toast-header error";
+    document.getElementById("toastBody").innerHTML   = "";
+    document.getElementById("toast").className = "toast show";
   }
 
   function saveToSheet(studentId, nickname) {
-    var pill = document.getElementById("savePill");
-    pill.textContent = "⏳ กำลังบันทึก...";
-    pill.className   = "save-pill show saving";
+    var bar = document.getElementById("saveBar");
+    bar.textContent = "⏳ กำลังบันทึก...";
+    bar.className   = "save-bar show saving";
 
     fetch(SCRIPT_URL, {
       method: "POST",
@@ -354,32 +455,31 @@
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
-      if (data.status === "success") {
-        pill.textContent = "✅ บันทึกลง Google Sheets แล้ว";
-        pill.className   = "save-pill show saved";
-      } else {
-        pill.textContent = "❌ บันทึกไม่สำเร็จ: " + (data.message || "");
-        pill.className   = "save-pill show failed";
-      }
+      bar.textContent = data.status === "success" ? "✅ บันทึกลง Google Sheets แล้ว" : "❌ บันทึกไม่สำเร็จ";
+      bar.className   = "save-bar show " + (data.status === "success" ? "saved" : "failed");
     })
     .catch(function() {
-      pill.textContent = "❌ เชื่อมต่อ Apps Script ไม่ได้";
-      pill.className   = "save-pill show failed";
+      bar.textContent = "❌ เชื่อมต่อ Apps Script ไม่ได้";
+      bar.className   = "save-bar show failed";
     });
   }
 
   function addLog(id, name) {
     var now  = new Date();
     var time = now.getHours().toString().padStart(2,"0") + ":" +
-               now.getMinutes().toString().padStart(2,"0") + ":" +
-               now.getSeconds().toString().padStart(2,"0");
+               now.getMinutes().toString().padStart(2,"0");
 
     scanLog.unshift({ id: id, name: name, time: time });
+    if (scanLog.length > 3) scanLog = scanLog.slice(0, 3);
 
-    document.getElementById("logList").innerHTML = scanLog.map(function(item) {
-      return '<div class="log-item">' +
-        '<div><div class="log-name">' + item.name + '</div><div class="log-id">' + item.id + '</div></div>' +
-        '<div class="log-time">' + item.time + '</div></div>';
+    document.getElementById("logBar").innerHTML = scanLog.map(function(item) {
+      return '<div class="log-row">' +
+        '<div class="log-row-left">' +
+          '<div class="log-dot"></div>' +
+          '<div><div class="log-name">' + item.name + '</div><div class="log-id">' + item.id + '</div></div>' +
+        '</div>' +
+        '<div class="log-time">' + item.time + '</div>' +
+      '</div>';
     }).join("");
   }
 </script>
