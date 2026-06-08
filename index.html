@@ -104,7 +104,34 @@
   <button class="btn-retry" onclick="startCamera()">🔄 ลองใหม่</button>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<script>
+  // โหลด jsQR แบบมี fallback หลาย CDN
+  var JSQR_CDNS = [
+    "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",
+    "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"
+  ];
+  var jsqrLoaded = false;
+
+  function loadJsQR(idx) {
+    if (idx >= JSQR_CDNS.length) {
+      document.getElementById && console.error("โหลด jsQR ไม่ได้ทุก CDN");
+      return;
+    }
+    var s = document.createElement("script");
+    s.src = JSQR_CDNS[idx];
+    s.onload = function() {
+      if (typeof jsQR !== "undefined") {
+        jsqrLoaded = true;
+        try { addLog("jsQR โหลดสำเร็จ", "found"); } catch(e) {}
+      } else {
+        loadJsQR(idx + 1);
+      }
+    };
+    s.onerror = function() { loadJsQR(idx + 1); };
+    document.head.appendChild(s);
+  }
+</script>
 
 <script>
   var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGEwOD2y541aYTW2brTLxKr_C4gCE2XpQDl5p20N3IR6z5GnQ1hYy43ZxdIPf8eNtv/exec";
@@ -201,11 +228,18 @@
         ctx.drawImage(video, 0, 0, w, h);
 
         var code = null;
-        try {
-          var img = ctx.getImageData(0, 0, w, h);
-          code = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
-        } catch(decodeErr) {
-          if (frameCount % 60 === 0) addLog("decode err: " + decodeErr.message, "err");
+        if (typeof jsQR !== "undefined") {
+          try {
+            var img = ctx.getImageData(0, 0, w, h);
+            code = jsQR(img.data, w, h, { inversionAttempts: "attemptBoth" });
+          } catch(decodeErr) {
+            if (frameCount % 60 === 0) addLog("decode err: " + decodeErr.message, "err");
+          }
+        } else {
+          if (frameCount % 30 === 0) {
+            document.getElementById("dbResult").textContent = "⏳ รอ jsQR โหลด...";
+            document.getElementById("dbResult").className = "debug-val warn";
+          }
         }
 
         if (code && code.data) {
@@ -292,6 +326,7 @@
     });
   }
 
+  loadJsQR(0);
   window.addEventListener("load", startCamera);
 </script>
 </body>
