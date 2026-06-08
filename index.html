@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>QR Scanner</title>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
@@ -60,7 +59,6 @@
 
   .btn-icon:active { background: rgba(255,255,255,0.4); }
 
-  /* debug badge */
   .debug-badge {
     background: rgba(234,179,8,0.85);
     color: #000;
@@ -68,7 +66,6 @@
     font-weight: 700;
     padding: 3px 10px;
     border-radius: 20px;
-    letter-spacing: 0.5px;
   }
 
   .center-area {
@@ -116,7 +113,6 @@
     text-align: center;
   }
 
-  /* DEBUG PANEL */
   .debug-panel {
     width: calc(100% - 32px);
     background: rgba(0,0,0,0.82);
@@ -125,16 +121,12 @@
     border-radius: 14px;
     padding: 12px 14px;
     margin: 0 16px;
-    max-height: 38vh;
-    overflow-y: auto;
   }
 
   .debug-title {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 11px; font-weight: 700;
     color: #eab308;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    letter-spacing: 1px; text-transform: uppercase;
     margin-bottom: 8px;
   }
 
@@ -148,44 +140,17 @@
   }
 
   .debug-row:last-child { border-bottom: none; }
+  .debug-key { font-size:11px; color:rgba(255,255,255,0.45); white-space:nowrap; flex-shrink:0; }
+  .debug-val { font-size:12px; color:#f1f5f9; text-align:right; word-break:break-all; font-family:monospace; }
+  .debug-val.ok   { color: #22c55e; }
+  .debug-val.err  { color: #f87171; }
+  .debug-val.warn { color: #eab308; }
 
-  .debug-key {
-    font-size: 11px;
-    color: rgba(255,255,255,0.45);
-    white-space: nowrap;
-    flex-shrink: 0;
-    padding-top: 1px;
-  }
+  .debug-log { margin-top:8px; max-height:80px; overflow-y:auto; }
+  .debug-log-row { font-size:11px; font-family:monospace; color:rgba(255,255,255,0.5); padding:2px 0; border-bottom:0.5px solid rgba(255,255,255,0.05); }
+  .debug-log-row.found { color:#22c55e; font-weight:700; }
+  .debug-log-row.err   { color:#f87171; }
 
-  .debug-val {
-    font-size: 12px;
-    color: #f1f5f9;
-    text-align: right;
-    word-break: break-all;
-    font-family: monospace;
-  }
-
-  .debug-val.ok  { color: #22c55e; }
-  .debug-val.err { color: #f87171; }
-  .debug-val.warn{ color: #eab308; }
-
-  .debug-log {
-    margin-top: 8px;
-    max-height: 80px;
-    overflow-y: auto;
-  }
-
-  .debug-log-row {
-    font-size: 11px;
-    font-family: monospace;
-    color: rgba(255,255,255,0.5);
-    padding: 2px 0;
-    border-bottom: 0.5px solid rgba(255,255,255,0.05);
-  }
-
-  .debug-log-row.found { color: #22c55e; font-weight: 700; }
-
-  /* bottom */
   .bottom-panel { width:100%; }
 
   .toast {
@@ -202,7 +167,7 @@
     to   { opacity:1; transform:translateY(0) scale(1); }
   }
 
-  .toast.show { display: block; }
+  .toast.show { display:block; }
 
   .toast-header {
     padding: 11px 16px;
@@ -254,13 +219,7 @@
   .perm-icon  { font-size:56px; margin-bottom:16px; }
   .perm-title { font-size:20px; font-weight:700; color:#f1f5f9; margin-bottom:10px; }
   .perm-desc  { font-size:14px; color:#64748b; line-height:1.8; margin-bottom:28px; }
-
-  .btn-retry {
-    background:#2563eb; color:#fff;
-    border:none; border-radius:14px;
-    padding:16px 36px;
-    font-size:16px; font-weight:700; cursor:pointer;
-  }
+  .btn-retry  { background:#2563eb; color:#fff; border:none; border-radius:14px; padding:16px 36px; font-size:16px; font-weight:700; cursor:pointer; }
 
   canvas { display:none; }
 </style>
@@ -289,9 +248,12 @@
   </div>
 
   <div class="bottom-panel">
-    <!-- DEBUG PANEL -->
     <div class="debug-panel">
       <div class="debug-title">🔍 Debug Info</div>
+      <div class="debug-row">
+        <span class="debug-key">Library</span>
+        <span class="debug-val" id="dbLib">โหลด ZXing...</span>
+      </div>
       <div class="debug-row">
         <span class="debug-key">กล้อง</span>
         <span class="debug-val" id="dbCamera">รอ...</span>
@@ -301,16 +263,12 @@
         <span class="debug-val" id="dbSize">—</span>
       </div>
       <div class="debug-row">
-        <span class="debug-key">Frame ที่สแกน</span>
-        <span class="debug-val" id="dbFrames">0</span>
-      </div>
-      <div class="debug-row">
-        <span class="debug-key">jsQR ผลล่าสุด</span>
+        <span class="debug-key">สแกนล่าสุด</span>
         <span class="debug-val" id="dbResult">ยังไม่เจอ</span>
       </div>
       <div class="debug-row">
-        <span class="debug-key">ข้อมูลที่อ่านได้</span>
-        <span class="debug-val" id="dbData" style="max-width:180px; overflow:hidden; text-overflow:ellipsis;">—</span>
+        <span class="debug-key">ข้อมูล</span>
+        <span class="debug-val" id="dbData" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;">—</span>
       </div>
       <div class="debug-title" style="margin-top:10px;">📋 Log</div>
       <div class="debug-log" id="debugLog"></div>
@@ -330,73 +288,116 @@
 <div class="perm-screen" id="permScreen">
   <div class="perm-icon">🔒</div>
   <div class="perm-title">ไม่สามารถเข้ากล้องได้</div>
-  <div class="perm-desc">
-    กรุณาอนุญาตการใช้กล้อง<br>
-    แล้วกดลองใหม่<br><br>
-    ⚠️ ต้องเปิดผ่าน <strong style="color:#f1f5f9">Chrome</strong> หรือ <strong style="color:#f1f5f9">Safari</strong>
-  </div>
-  <button class="btn-retry" onclick="startCamera()">🔄 ลองใหม่</button>
+  <div class="perm-desc">กรุณาอนุญาตการใช้กล้อง<br>แล้วกดลองใหม่<br><br>⚠️ ต้องเปิดผ่าน <strong style="color:#f1f5f9">Chrome</strong> หรือ <strong style="color:#f1f5f9">Safari</strong></div>
+  <button class="btn-retry" onclick="startScanner()">🔄 ลองใหม่</button>
 </div>
+
+<!-- โหลด ZXing -->
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 
 <script>
   var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGEwOD2y541aYTW2brTLxKr_C4gCE2XpQDl5p20N3IR6z5GnQ1hYy43ZxdIPf8eNtv/exec";
 
-  var facingMode = "environment";
-  var stream     = null;
-  var cooldown   = false;
-  var lastResult = "";
-  var frameCount = 0;
-  var logLines   = [];
-
-  startCamera();
+  var facingMode  = "environment";
+  var codeReader  = null;
+  var cooldown    = false;
+  var logLines    = [];
 
   function addLog(msg, type) {
-    var t = new Date();
+    var t  = new Date();
     var ts = t.getHours().toString().padStart(2,"0") + ":" +
              t.getMinutes().toString().padStart(2,"0") + ":" +
              t.getSeconds().toString().padStart(2,"0");
     logLines.unshift({ msg: msg, type: type || "", ts: ts });
-    if (logLines.length > 20) logLines = logLines.slice(0, 20);
+    if (logLines.length > 20) logLines = logLines.slice(0,20);
     document.getElementById("debugLog").innerHTML = logLines.map(function(l) {
       return '<div class="debug-log-row ' + l.type + '">[' + l.ts + '] ' + l.msg + '</div>';
     }).join("");
   }
 
-  function startCamera() {
+  function startScanner() {
     document.getElementById("permScreen").className = "perm-screen";
-    document.getElementById("dbCamera").textContent = "กำลังเปิด...";
-    document.getElementById("dbCamera").className   = "debug-val warn";
 
-    if (stream) {
-      stream.getTracks().forEach(function(t) { t.stop(); });
-      stream = null;
+    // ถ้ามี codeReader อยู่แล้ว reset ก่อน
+    if (codeReader) {
+      try { codeReader.reset(); } catch(e) {}
     }
 
-    addLog("เปิดกล้อง: " + facingMode);
+    if (typeof ZXing === "undefined") {
+      addLog("ZXing ยังโหลดไม่เสร็จ รอแป๊บ...", "warn");
+      document.getElementById("dbLib").textContent = "โหลดไม่ได้ ❌";
+      document.getElementById("dbLib").className   = "debug-val err";
+      setTimeout(startScanner, 1500);
+      return;
+    }
 
-    navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: facingMode },
-        width:  { ideal: 1920 },
-        height: { ideal: 1080 }
+    document.getElementById("dbLib").textContent = "ZXing ✅";
+    document.getElementById("dbLib").className   = "debug-val ok";
+    addLog("ZXing พร้อม");
+
+    codeReader = new ZXing.BrowserMultiFormatReader();
+
+    // หา deviceId ของกล้องที่ต้องการ
+    ZXing.BrowserCodeReader.listVideoInputDevices()
+    .then(function(devices) {
+      addLog("พบกล้อง " + devices.length + " ตัว");
+      devices.forEach(function(d, i) {
+        addLog("  [" + i + "] " + d.label);
+      });
+
+      // เลือก deviceId ตาม facingMode
+      var deviceId = null;
+      if (facingMode === "environment") {
+        // เลือกกล้องหลัง — มักเป็นตัวสุดท้าย
+        var back = devices.filter(function(d) {
+          return d.label.toLowerCase().includes("back") ||
+                 d.label.toLowerCase().includes("rear") ||
+                 d.label.toLowerCase().includes("environment");
+        });
+        deviceId = back.length > 0 ? back[0].deviceId : devices[devices.length - 1].deviceId;
+      } else {
+        // กล้องหน้า — มักเป็นตัวแรก
+        var front = devices.filter(function(d) {
+          return d.label.toLowerCase().includes("front") ||
+                 d.label.toLowerCase().includes("user") ||
+                 d.label.toLowerCase().includes("face");
+        });
+        deviceId = front.length > 0 ? front[0].deviceId : devices[0].deviceId;
       }
-    })
-    .then(function(s) {
-      stream = s;
-      var track    = s.getVideoTracks()[0];
-      var settings = track.getSettings();
-      addLog("กล้องพร้อม: " + (settings.facingMode || facingMode) + " " + settings.width + "x" + settings.height, "found");
-      document.getElementById("dbCamera").textContent = (settings.facingMode || facingMode) + " ✅";
+
+      addLog("ใช้กล้อง: " + deviceId.substring(0,16) + "...");
+      document.getElementById("dbCamera").textContent = facingMode + " ✅";
       document.getElementById("dbCamera").className   = "debug-val ok";
 
-      var video = document.getElementById("video");
-      video.srcObject = s;
-      video.play();
-      video.addEventListener("loadedmetadata", function() {
-        document.getElementById("dbSize").textContent = video.videoWidth + " × " + video.videoHeight;
-        addLog("วิดีโอ: " + video.videoWidth + "x" + video.videoHeight);
-        requestAnimationFrame(tick);
-      }, { once: true });
+      return codeReader.decodeFromVideoDevice(deviceId, "video", function(result, err) {
+        if (result) {
+          var text = result.getText();
+
+          // อัป debug
+          document.getElementById("dbResult").textContent = "✅ เจอ!";
+          document.getElementById("dbResult").className   = "debug-val ok";
+          document.getElementById("dbData").textContent   = text.substring(0,50);
+          document.getElementById("dbData").className     = "debug-val ok";
+
+          if (!cooldown) {
+            cooldown = true;
+            addLog("🎯 พบ QR: " + text.substring(0,40), "found");
+            processQR(text);
+            setTimeout(function() { cooldown = false; }, 4000);
+          }
+        }
+        if (err && !(err instanceof ZXing.NotFoundException)) {
+          addLog("err: " + err.message, "err");
+        }
+      });
+    })
+    .then(function() {
+      // อ่าน video size หลังเริ่ม
+      setTimeout(function() {
+        var v = document.getElementById("video");
+        document.getElementById("dbSize").textContent = v.videoWidth + " × " + v.videoHeight;
+        addLog("วิดีโอ: " + v.videoWidth + "x" + v.videoHeight);
+      }, 1000);
     })
     .catch(function(err) {
       addLog("เปิดกล้องไม่ได้: " + err.message, "err");
@@ -409,67 +410,7 @@
   function flipCamera() {
     facingMode = facingMode === "environment" ? "user" : "environment";
     addLog("สลับกล้อง → " + facingMode);
-    startCamera();
-  }
-
-  function tick() {
-    var video  = document.getElementById("video");
-    var canvas = document.getElementById("canvas");
-
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      frameCount++;
-      document.getElementById("dbFrames").textContent = frameCount;
-
-      var w = video.videoWidth;
-      var h = video.videoHeight;
-      canvas.width  = w;
-      canvas.height = h;
-
-      var ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, w, h);
-
-      var code = null;
-
-      // ลอง crop กลาง 60% ก่อน
-      var cx = Math.floor(w * 0.2);
-      var cy = Math.floor(h * 0.2);
-      var cw = Math.floor(w * 0.6);
-      var ch = Math.floor(h * 0.6);
-      var imgCrop = ctx.getImageData(cx, cy, cw, ch);
-      code = jsQR(imgCrop.data, cw, ch, { inversionAttempts: "attemptBoth" });
-
-      // ถ้าไม่เจอ ลอง full frame
-      if (!code) {
-        var imgFull = ctx.getImageData(0, 0, w, h);
-        code = jsQR(imgFull.data, w, h, { inversionAttempts: "attemptBoth" });
-      }
-
-      // อัป debug ทุก 30 frames
-      if (frameCount % 30 === 0) {
-        if (code) {
-          document.getElementById("dbResult").textContent = "✅ เจอ QR!";
-          document.getElementById("dbResult").className   = "debug-val ok";
-          document.getElementById("dbData").textContent   = code.data.substring(0, 60);
-          document.getElementById("dbData").className     = "debug-val ok";
-        } else {
-          document.getElementById("dbResult").textContent = "ยังไม่เจอ (frame " + frameCount + ")";
-          document.getElementById("dbResult").className   = "debug-val warn";
-        }
-      }
-
-      if (code && code.data && code.data !== lastResult && !cooldown) {
-        addLog("🎯 QR พบ: " + code.data.substring(0, 50), "found");
-        lastResult = code.data;
-        cooldown   = true;
-        processQR(code.data);
-        setTimeout(function() {
-          cooldown   = false;
-          lastResult = "";
-        }, 4000);
-      }
-    }
-
-    requestAnimationFrame(tick);
+    startScanner();
   }
 
   function processQR(text) {
@@ -488,8 +429,8 @@
       showSuccess(studentId, nickname);
       saveToSheet(studentId, nickname);
     } catch(e) {
-      addLog("parse URL ไม่ได้: " + text.substring(0,40), "err");
-      showError("QR รูปแบบไม่ถูกต้อง: " + text.substring(0,30));
+      addLog("URL parse ไม่ได้: " + text.substring(0,30), "err");
+      showError("QR รูปแบบไม่ถูกต้อง");
     }
   }
 
@@ -531,7 +472,7 @@
       var ok = data.status === "success";
       bar.textContent = ok ? "✅ บันทึกลง Google Sheets แล้ว" : "❌ บันทึกไม่สำเร็จ";
       bar.className   = "save-bar show " + (ok ? "saved" : "failed");
-      addLog("Sheets: " + (ok ? "success" : "failed"), ok ? "found" : "err");
+      addLog("Sheets: " + (ok ? "success ✅" : "failed ❌"), ok ? "found" : "err");
     })
     .catch(function(err) {
       bar.textContent = "❌ เชื่อมต่อไม่ได้";
@@ -539,6 +480,11 @@
       addLog("fetch error: " + err.message, "err");
     });
   }
+
+  // เริ่มหลัง ZXing โหลดเสร็จ
+  window.addEventListener("load", function() {
+    setTimeout(startScanner, 500);
+  });
 </script>
 </body>
 </html>
