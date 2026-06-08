@@ -176,14 +176,17 @@
 
 <!-- SCAN -->
 <div class="screen active" id="screenScan">
-  <video id="video" playsinline autoplay muted></video>
+  <video id="video" playsinline autoplay muted onclick="tapFocus()"></video>
   <div class="scan-ui">
     <div class="scan-top">
       <div class="brand">
         <div class="brand-logo">📷</div>
         <div class="brand-text">ตอบแบบสอบถาม</div>
       </div>
-      <div class="btn-flip" onclick="flipCamera()">🔄</div>
+      <div style="display:flex; gap:10px;">
+        <div class="btn-flip" id="btnTorch" onclick="toggleTorch()">🔦</div>
+        <div class="btn-flip" onclick="flipCamera()">🔄</div>
+      </div>
     </div>
     <div class="scan-center">
       <div class="qr-frame">
@@ -336,15 +339,19 @@
     document.getElementById(id).classList.add("active");
   }
 
+  var torchOn = false;
+
   function startCamera() {
     scanning = false;
+    torchOn  = false;
     if (stream) { stream.getTracks().forEach(function(t){t.stop();}); stream=null; }
+
     navigator.mediaDevices.getUserMedia({
       video:{
         facingMode:{ideal:facingMode},
-        width:{ideal:1920},
-        height:{ideal:1080},
-        advanced:[{focusMode:"continuous"}]   // โฟกัสต่อเนื่อง ช่วยภาพคมขึ้น
+        width:{ideal:2560},
+        height:{ideal:1440},
+        frameRate:{ideal:30}
       }
     })
     .then(function(s){
@@ -352,10 +359,66 @@
       var video = document.getElementById("video");
       video.srcObject = s;
       video.play().catch(function(){});
+
+      // ปรับกล้องให้คมที่สุด: โฟกัสต่อเนื่อง
+      applyCameraEnhancements(s.getVideoTracks()[0]);
+
       scanning = true;
       requestAnimationFrame(tick);
     })
     .catch(function(){ showScreen("screenPerm"); });
+  }
+
+  // บังคับโฟกัสอัตโนมัติต่อเนื่อง (เทคนิคสำคัญที่สุดสำหรับภาพเบลอ)
+  function applyCameraEnhancements(track) {
+    if (!track || !track.getCapabilities) return;
+    try {
+      var caps = track.getCapabilities();
+      var adv  = [];
+      if (caps.focusMode && caps.focusMode.indexOf("continuous") >= 0) {
+        adv.push({ focusMode:"continuous" });
+      }
+      // ถ้ารองรับ zoom เล็กน้อย ช่วยให้ QR ใหญ่ขึ้น
+      if (caps.zoom && caps.zoom.min !== undefined) {
+        var z = Math.min(caps.zoom.min + (caps.zoom.max - caps.zoom.min) * 0.15, caps.zoom.max);
+        adv.push({ zoom: z });
+      }
+      if (adv.length) track.applyConstraints({ advanced: adv }).catch(function(){});
+    } catch(e){}
+  }
+
+  // แตะจอเพื่อสั่งโฟกัสใหม่
+  function tapFocus() {
+    if (!stream) return;
+    var track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    try {
+      var caps = track.getCapabilities();
+      if (caps.focusMode && caps.focusMode.indexOf("single-shot") >= 0) {
+        track.applyConstraints({ advanced:[{ focusMode:"single-shot" }] })
+          .then(function(){
+            setTimeout(function(){
+              track.applyConstraints({ advanced:[{ focusMode:"continuous" }] }).catch(function(){});
+            }, 1500);
+          }).catch(function(){});
+      }
+    } catch(e){}
+  }
+
+  // ไฟฉาย (เฉพาะเครื่องที่รองรับ + มักได้เฉพาะกล้องหลัง)
+  function toggleTorch() {
+    if (!stream) return;
+    var track = stream.getVideoTracks()[0];
+    if (!track || !track.getCapabilities) return;
+    try {
+      var caps = track.getCapabilities();
+      if (caps.torch) {
+        torchOn = !torchOn;
+        track.applyConstraints({ advanced:[{ torch: torchOn }] }).catch(function(){});
+        document.getElementById("btnTorch").style.background = torchOn
+          ? "rgba(224,169,59,0.6)" : "rgba(255,255,255,0.15)";
+      }
+    } catch(e){}
   }
 
   function restartScanner(){ showScreen("screenScan"); startCamera(); }
